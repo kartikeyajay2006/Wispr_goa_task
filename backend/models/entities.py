@@ -24,7 +24,7 @@ class DeletionRequest(TimestampMixin, Base):
     __tablename__ = "deletion_requests"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     customer_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    status: Mapped[str] = mapped_column(Status, nullable=False, default="pending", index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
     requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
     identifiers: Mapped[list[CustomerIdentifier]] = relationship(back_populates="request", cascade="all, delete-orphan")
     resources: Mapped[list[DiscoveredResource]] = relationship(back_populates="request", cascade="all, delete-orphan")
@@ -55,7 +55,7 @@ class DiscoveredResource(Base):
     resource_id: Mapped[str] = mapped_column(String(500), nullable=False)
     contains_personal_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     classification: Mapped[str | None] = mapped_column(String(100))
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
     evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     request: Mapped[DeletionRequest] = relationship(back_populates="resources")
     dependencies_from: Mapped[list[ResourceDependency]] = relationship(foreign_keys="ResourceDependency.source_resource_id", back_populates="source_resource", cascade="all, delete-orphan")
@@ -153,6 +153,8 @@ class ExecutionResult(Base):
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=True, unique=True, index=True)
+    audit_event_hash: Mapped[str] = mapped_column(String(128), nullable=True)
 
 
 class VerificationResult(Base):

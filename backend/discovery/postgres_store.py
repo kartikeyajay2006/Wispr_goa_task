@@ -13,5 +13,5 @@ class PostgresDiscoveryStore:
         self._session = session
 
     async def save(self, request_id: UUID, resources: list[DiscoveredResourceEvidence]) -> None:
-        self._session.add_all([DiscoveredResource(request_id=request_id, system=item.system, resource_type=item.resource_type, resource_id=item.resource_id, contains_personal_data=item.classification == "personal_data", classification=item.classification, metadata=item.metadata, evidence=item.evidence) for item in resources])
+        self._session.add_all([DiscoveredResource(request_id=request_id, system=item.system, resource_type=item.resource_type, resource_id=item.resource_id, contains_personal_data=item.classification == "personal_data", classification=item.classification, metadata_json=item.metadata, evidence=item.evidence) for item in resources])
         await self._session.flush()

@@ -4,6 +4,7 @@ from .entities import (
     ResourceDependency, SandboxRun, VerificationResult,
 )
 from .workflow import WorkflowRun
+from .risk import BlastRadiusReport
 
 __all__ = [
     "Approval", "AuditEvent", "CustomerIdentifier", "DeletionPlan",
@@ -11,4 +12,5 @@ __all__ = [
     "PlannedAction", "PolicyDecision", "ResourceDependency", "SandboxRun",
     "VerificationResult",
     "WorkflowRun",
+    "BlastRadiusReport",
 ]
