@@ -80,12 +80,11 @@ export class DemoDataset {
     }
     return changed;
   }
-  insertRows(table: string, rows: Row[]) {
-    const existing = this.rows(table);
-    const ids = new Set(existing.map(row => row.id));
-    const restored = rows.filter(row => !ids.has(row.id));
-    this.tables.set(table, [...existing, ...structuredClone(restored)]);
-    return restored.length;
+  /** Writes rows back by primary key, replacing current values (used when restoring from a backup). */
+  upsertRows(table: string, rows: readonly Row[]) {
+    const incoming = new Map(rows.map(row => [row.id, structuredClone(row)]));
+    this.tables.set(table, [...this.rows(table).filter(row => !incoming.has(row.id)), ...incoming.values()]);
+    return incoming.size;
   }
   deleteOwnedObjects(bucket: string, customerId: string) {
     const before = this.objects(bucket).length;

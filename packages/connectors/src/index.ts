@@ -9,6 +9,7 @@ export type ConnectorContext = {demoMode: true; allowlistedHosts: string[]; allo
 export type BackupResourceEvidence = {resource:string;kind:'database'|'object';records:number;checksum:string};
 export type BackupResult = {backupId: string; checksum: string; resources: number; resourceEvidence?: BackupResourceEvidence[]; artifacts?: string[]; failures?: string[]};
 export type BackupVerification = {system: string; verified: boolean; reason: string; checked: number};
+export type RestoreResult = {system: string; restored: number; details: string};
 export type ConnectorExecutionContext = {approved: boolean; customerId?: string; authoritativePlanHash?: string};
 export type InventoryEntry = {resource: string; kind: 'table' | 'bucket'; records: number; bytes?: number};
 export type CustomerProfile = {customerId: string; displayName?: string; email?: string; region?: string; createdAt?: string};
@@ -19,6 +20,7 @@ export interface Connector {
   previewAction(action: DeletionAction, customerId?: string): Promise<{safe: boolean; affected: number; reason: string}>;
   backupCustomerData(customerId: string, requestId: string): Promise<BackupResult>;
   verifyBackup?(customerId: string, requestId: string, evidence: BackupResourceEvidence[]): Promise<BackupVerification>;
+  restoreCustomerData?(customerId: string, requestId: string): Promise<RestoreResult>;
   simulate?(customerId: string, actions: DeletionAction[]): Promise<SimulationReport>;
   execute(action: DeletionAction, planHash: string, ctx: ConnectorExecutionContext): Promise<ExecutionResult>;
   verify(customerId: string): Promise<VerificationResult>;
@@ -166,6 +168,16 @@ export class MockPostgresConnector implements Connector {
     return {system: 'PostgreSQL', verified: !mismatched.length, reason: mismatched.length ? `Checksum mismatch for ${mismatched.map(item => item.resource).join(', ')}` : `Re-read ${plural(expected.length, 'table snapshot')} and matched every checksum`, checked: expected.length};
   }
 
+  async restoreCustomerData(customerId: string, requestId: string): Promise<RestoreResult> {
+    const artifact = this.dataset.getObject(BACKUP_BUCKET, `${requestId}/database.json`);
+    if (!artifact) throw new Error(`No database backup exists for request ${requestId}`);
+    const stored = JSON.parse(artifact.body) as {customerId: string; snapshots: Array<{table: string; rows: Row[]}>};
+    if (stored.customerId !== customerId) throw new Error('Backup artifact belongs to a different customer');
+    let restored = 0;
+    for (const snapshot of stored.snapshots) restored += this.dataset.upsertRows(snapshot.table, snapshot.rows);
+    return {system: 'PostgreSQL', restored, details: `Restored ${plural(restored, 'row')} across ${plural(stored.snapshots.length, 'table')}`};
+  }
+
   async execute(action: DeletionAction, planHash: string, ctx: ConnectorExecutionContext): Promise<ExecutionResult> {
     const customerId = assertExecutable(action, planHash, ctx);
     const startedAt = now();
@@ -232,6 +244,18 @@ export class MockMinioConnector implements Connector {
     const expected = evidence.filter(item => item.kind === 'object');
     const mismatched = expected.filter(item => { const [bucket, ...key] = item.resource.replace(/^minio:/, '').split('/'); const copy = this.dataset.getObject(BACKUP_BUCKET, `${requestId}/${bucket}/${key.join('/')}`); return !copy || sha256(copy.body) !== item.checksum; });
     return {system: 'MinIO', verified: !mismatched.length, reason: mismatched.length ? `Backup copy missing or altered for ${mismatched.map(item => item.resource).join(', ')}` : expected.length ? `Re-read ${plural(expected.length, 'backup object')} and matched every checksum` : 'No objects to back up', checked: expected.length};
+  }
+
+  async restoreCustomerData(customerId: string, requestId: string): Promise<RestoreResult> {
+    const prefix = `${requestId}/`;
+    let restored = 0;
+    for (const copy of this.dataset.objects(BACKUP_BUCKET).filter(object => object.key.startsWith(prefix) && object.customerId === customerId)) {
+      const [bucket, ...key] = copy.key.slice(prefix.length).split('/');
+      if (!(SOURCE_BUCKETS as readonly string[]).includes(bucket)) continue;
+      this.dataset.putObject(bucket, {...copy, key: key.join('/')});
+      restored++;
+    }
+    return {system: 'MinIO', restored, details: `Restored ${plural(restored, 'object')} from the request backup`};
   }
 
   async execute(action: DeletionAction, planHash: string, ctx: ConnectorExecutionContext): Promise<ExecutionResult> {
