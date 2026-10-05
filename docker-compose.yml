@@ -23,3 +23,7 @@ services:
       MINIO_ROOT_PASSWORD: eraseops_local_only
       MINIO_DEFAULT_BUCKETS: customer-uploads,support-attachments,exports,eraseops-backups
     ports: ['9000:9000', '9001:9001']
+    healthcheck:
+      test: ['CMD', 'curl', '-fs', 'http://localhost:9000/minio/health/live']
+      interval: 2s
+      retries: 30
