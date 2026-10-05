@@ -5,7 +5,8 @@ export type ExecutionContext = {approved: boolean; planHash: string; currentPlan
 
 export class ExecutionEngine {
   private completed = new Set<string>();
-  execute(action: DeletionAction, ctx: ExecutionContext): ExecutionResult {
+  /** Runs every guard and returns false when the action already ran under this plan (idempotent replay). */
+  authorize(action: DeletionAction, ctx: ExecutionContext): boolean {
     if (ctx.authorizationBoundary !== 'guarded') throw new Error('Guarded authorization boundary required');
     if (!ctx.demoMode) throw new Error('Production execution is disabled in demo mode');
     if (!ctx.approved) throw new Error('Human approval required');
@@ -14,9 +15,13 @@ export class ExecutionEngine {
     if (ctx.planHash !== ctx.currentPlanHash) throw new Error('Approval plan hash does not match current plan');
     if (!action.selector || /[;']/.test(action.selector)) throw new Error('Structured action selector required');
     const actionKey = createHash('sha256').update(`${ctx.planHash}:${action.id}`).digest('hex');
-    if (this.completed.has(actionKey)) return {actionId: action.id, status: 'skipped', startedAt: new Date().toISOString(), completedAt: new Date().toISOString(), affectedRecords: 0};
-    const startedAt = new Date().toISOString();
+    if (this.completed.has(actionKey)) return false;
     this.completed.add(actionKey);
+    return true;
+  }
+  execute(action: DeletionAction, ctx: ExecutionContext): ExecutionResult {
+    const startedAt = new Date().toISOString();
+    if (!this.authorize(action, ctx)) return {actionId: action.id, status: 'skipped', startedAt, completedAt: new Date().toISOString(), affectedRecords: 0};
     return {actionId: action.id, status: 'completed', startedAt, completedAt: new Date().toISOString(), affectedRecords: action.recordCount};
   }
 }

@@ -3,7 +3,7 @@ import cors from 'cors';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {requestSchema, workflowResponseSchema, canonicalPlan, hashPlan, event, type Asset, type Workflow} from '../../../packages/shared/src/index.js';
-import {MockMinioConnector, MockPostgresConnector} from '../../../packages/connectors/src/index.js';
+import {createMockConnectors, seededDataset} from '../../../packages/connectors/src/index.js';
 import {MinioAdapter, PostgresAdapter} from '../../../packages/connectors/src/adapters.js';
 import {MinioHttpObjectClient} from '../../../packages/connectors/src/s3-client.js';
 import {MinioLiveConnector, PostgresLiveConnector} from '../../../packages/connectors/src/live.js';
@@ -27,8 +27,9 @@ app.use(express.json());
 
 const store = new InMemoryRuntimeStore(createMetadataRepository(runtimeConfig));
 const localObjectClient = runtimeConfig.connectorMode === 'local' ? new MinioHttpObjectClient(runtimeConfig.minio) : undefined;
-const postgres = runtimeConfig.connectorMode === 'local' ? new PostgresLiveConnector(new PostgresAdapter(new Pool({connectionString: runtimeConfig.databaseUrl}), localObjectClient)) : new MockPostgresConnector();
-const minio = runtimeConfig.connectorMode === 'local' ? new MinioLiveConnector(new MinioAdapter(localObjectClient!, runtimeConfig.allowlistedBuckets), runtimeConfig.allowlistedBuckets) : new MockMinioConnector();
+const mock = runtimeConfig.connectorMode === 'mock' ? createMockConnectors(seededDataset(runtimeConfig.datasetFile)) : undefined;
+const postgres = mock?.postgres ?? new PostgresLiveConnector(new PostgresAdapter(new Pool({connectionString: runtimeConfig.databaseUrl}), localObjectClient));
+const minio = mock?.minio ?? new MinioLiveConnector(new MinioAdapter(localObjectClient!, runtimeConfig.allowlistedBuckets), runtimeConfig.allowlistedBuckets);
 const guard = new DestructiveRequestGuard(runtimeConfig.rateLimit.maxAttempts, runtimeConfig.rateLimit.windowMs);
 const ctx = {demoMode: true as const, allowlistedHosts: runtimeConfig.allowlistedHosts, allowlistedBuckets: runtimeConfig.allowlistedBuckets};
 
@@ -109,7 +110,7 @@ app.post('/api/requests/:id/execute-guarded', async (req, res) => {
   if (!workflow.approval) return res.status(409).json({error: 'Execution blocked: human approval missing'});
   try {
     guard.authorize({identity: guardedInput.identity, requestId: req.params.id, approvalId: guardedInput.approvalId, planHash: guardedInput.planHash, authoritativeRequestId: workflow.requestId, authoritativeApprovalId: workflow.approval.token, authoritativePlanHash: workflow.plan.hash});
-    const result = await executeApprovedWorkflow(workflow, undefined, postgres, minio, async (action, planHash, customerId) => { const connector: any = action.system === 'PostgreSQL' ? postgres : minio; return connector.execute(action, planHash, {approved: true, customerId, authoritativePlanHash: workflow.plan.hash}); });
+    const result = await executeApprovedWorkflow(workflow, {postgres, minio});
     await store.persist(workflow.requestId);
     return res.json(result.workflow);
   } catch (error) { return res.status(409).json({error: error instanceof Error ? error.message : 'Execution blocked'}); }

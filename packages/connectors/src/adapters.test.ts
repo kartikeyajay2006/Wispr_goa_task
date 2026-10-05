@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {MinioAdapter, PostgresAdapter} from './adapters.js';
-import {MockPostgresConnector, assertSeededCustomer} from './index.js';
+import {MockPostgresConnector} from './index.js';
 
 const hash = 'a'.repeat(64);
 
@@ -16,10 +16,21 @@ describe('connector adapters', () => {
   it('constrains backup copies to a normalized EraserOps namespace', async () => { const copied: string[] = []; const adapter = new MinioAdapter({list: async () => ['CUST-1042/avatar.png'], copy: async (source, target) => { copied.push(`${source}->${target}`); }, delete: async () => {}}, ['customer-uploads']); await expect(adapter.backup('customer-uploads', 'CUST-1042/', 'unsafe/')).rejects.toThrow('eraseops-backups'); expect(await adapter.backup('customer-uploads', 'CUST-1042/', 'eraseops-backups/CUST-1042/')).toEqual({copied: 1}); expect(copied).toEqual(['customer-uploads/CUST-1042/avatar.png->eraseops-backups/CUST-1042/CUST-1042/avatar.png']); });
   it('rejects traversal-like backup object keys', async () => { const adapter = new MinioAdapter({list: async () => ['CUST-1042/../other-customer.txt'], copy: async () => {}, delete: async () => {}}, ['customer-uploads']); await expect(adapter.backup('customer-uploads', 'CUST-1042/', 'eraseops-backups/CUST-1042/')).rejects.toThrow('path traversal'); });
   it('verifies only remaining allowlisted objects', async () => { const adapter = new MinioAdapter({list: async () => [], copy: async () => {}, delete: async () => {}}, ['customer-uploads']); expect((await adapter.verify('CUST-1042')).verified).toBe(true); });
-  it('rejects unknown demo customers before discovery', async () => { expect(() => assertSeededCustomer('CUST-9999')).toThrow('not seeded'); const connector = new MockPostgresConnector(); await expect(connector.discoverCustomerData('CUST-9999', {demoMode: true, allowlistedHosts: ['postgres'], allowlistedBuckets: ['customer-uploads', 'support-attachments', 'exports']})).rejects.toThrow('not seeded'); });
+  it('returns an empty footprint for a customer the systems have never seen', async () => { const connector = new MockPostgresConnector(); await expect(connector.discoverCustomerData('CUST-9999', {demoMode: true, allowlistedHosts: ['postgres'], allowlistedBuckets: ['customer-uploads', 'support-attachments', 'exports']})).resolves.toEqual([]); await expect(connector.discoverCustomerData('9999', {demoMode: true, allowlistedHosts: ['postgres'], allowlistedBuckets: []})).rejects.toThrow('Invalid customer ID'); });
   it('gates MinIO deletion on approval, exact plan hash, and allowlisted keys', async () => { const deleted: string[] = []; const adapter = new MinioAdapter({list: async () => ['CUST-1042/avatar.png', 'CUST-1042/id.pdf'], copy: async () => {}, delete: async key => { deleted.push(key); }}, ['customer-uploads']); await expect(adapter.deleteCustomerObjects('CUST-1042', false, hash, hash)).rejects.toThrow('Human approval'); await expect(adapter.deleteCustomerObjects('CUST-1042', true, hash, 'b'.repeat(64))).rejects.toThrow('Plan hash'); expect(await adapter.deleteCustomerObjects('CUST-1042', true, hash, hash)).toEqual({deleted: 2}); expect(deleted).toEqual(['customer-uploads/CUST-1042/avatar.png', 'customer-uploads/CUST-1042/id.pdf']); });
 });
 
-describe('connector capability contract', () => { it('exposes typed dependency inspection for unsafe shared data', async () => { const connector = new MockPostgresConnector(); expect(await connector.inspectDependencies?.('CUST-9001')).toEqual([{source: 'customer', target: 'organization', relationshipType: 'shared account', constraintType: 'business', required: true, risk: 'high'}]); expect(await connector.inspectDependencies?.('CUST-1042')).toEqual([]); }); });
+describe('connector capability contract', () => {
+  it('derives cross-customer dependencies from the data, not from the customer ID', async () => {
+    const connector = new MockPostgresConnector();
+    const shared = (await connector.inspectDependencies('CUST-9001')).filter(dependency => dependency.constraintType === 'business');
+    expect(shared.map(dependency => dependency.source).sort()).toEqual(['pg:organization_members:CUST-9002', 'pg:organization_members:CUST-9003']);
+    expect(shared.every(dependency => dependency.target === 'pg:organizations:CUST-9001' && dependency.risk === 'high')).toBe(true);
+    const solo = await connector.inspectDependencies('CUST-1042');
+    expect(solo.some(dependency => dependency.constraintType === 'business')).toBe(false);
+    expect(solo).toContainEqual(expect.objectContaining({source: 'pg:payments:CUST-1042', target: 'pg:orders:CUST-1042', constraintType: 'foreign_key'}));
+    expect(solo).toContainEqual(expect.objectContaining({source: 'pg:orders:CUST-1042', target: 'policy:orders', constraintType: 'retention'}));
+  });
+});
 
-describe('multi-bucket MinIO discovery', () => { it('scans all configured customer buckets and uses the export key prefix', async () => { const calls: string[] = []; const adapter = new MinioAdapter({list: async (bucket, prefix) => { calls.push(`${bucket}:${prefix}`); return [`${prefix}object`]; }, copy: async () => {}, delete: async () => {}}, ['customer-uploads', 'support-attachments', 'exports']); const assets = await adapter.discover('CUST-1042'); expect(assets).toHaveLength(3); expect(calls).toEqual(['customer-uploads:CUST-1042/', 'support-attachments:CUST-1042/', 'exports:CUST-1042']); }); });
+describe('multi-bucket MinIO discovery', () => { it('scans all configured customer buckets and uses the export key prefix', async () => { const calls: string[] = []; const adapter = new MinioAdapter({list: async (bucket, prefix) => { calls.push(`${bucket}:${prefix}`); return [`${prefix}object`]; }, copy: async () => {}, delete: async () => {}}, ['customer-uploads', 'support-attachments', 'exports']); const assets = await adapter.discover('CUST-1042'); expect(assets).toHaveLength(3); expect(calls).toEqual(['customer-uploads:CUST-1042/', 'support-attachments:CUST-1042/', 'exports:CUST-1042-']); }); });

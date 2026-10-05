@@ -1,0 +1,703 @@
+{
+  "version": 1,
+  "description": "Synthetic EraseOps demo dataset. Every value is fake; emails use the reserved example.invalid domain.",
+  "tables": {
+    "customers": [
+      {
+        "id": "CUST-1042",
+        "name": "Mira Kulkarni",
+        "email": "mira.kulkarni.1042@example.invalid",
+        "phone": "+91-832-555-1042",
+        "region": "IN-GA",
+        "created_at": "2024-02-11T10:04:00Z"
+      },
+      {
+        "id": "CUST-2088",
+        "name": "Tomas Ferreira",
+        "email": "tomas.ferreira.2088@example.invalid",
+        "phone": "+351-21-555-2088",
+        "region": "PT-11",
+        "created_at": "2023-11-19T08:30:00Z"
+      },
+      {
+        "id": "CUST-3175",
+        "name": "Aiko Tanaka",
+        "email": "aiko.tanaka.3175@example.invalid",
+        "phone": "+81-3-5555-3175",
+        "region": "JP-13",
+        "created_at": "2022-06-05T03:15:00Z"
+      },
+      {
+        "id": "CUST-4410",
+        "name": "Daniel Okafor",
+        "email": "daniel.okafor.4410@example.invalid",
+        "phone": "+234-1-555-4410",
+        "region": "NG-LA",
+        "created_at": "2026-08-30T16:00:00Z"
+      },
+      {
+        "id": "CUST-7001",
+        "name": "Lena Hoffmann",
+        "email": "lena.hoffmann.7001@example.invalid",
+        "phone": "+49-30-555-7001",
+        "region": "DE-BE",
+        "created_at": "2021-01-20T11:00:00Z"
+      },
+      {
+        "id": "CUST-9001",
+        "name": "Priya Raman",
+        "email": "priya.raman.9001@example.invalid",
+        "phone": "+91-80-555-9001",
+        "region": "IN-KA",
+        "created_at": "2025-03-01T09:00:00Z"
+      },
+      {
+        "id": "CUST-9002",
+        "name": "Arjun Mehta",
+        "email": "arjun.mehta.9002@example.invalid",
+        "phone": "+91-22-555-9002",
+        "region": "IN-MH",
+        "created_at": "2025-03-01T09:00:00Z"
+      },
+      {
+        "id": "CUST-9003",
+        "name": "Sofia Rossi",
+        "email": "sofia.rossi.9003@example.invalid",
+        "phone": "+39-06-555-9003",
+        "region": "IT-RM",
+        "created_at": "2025-03-01T09:00:00Z"
+      }
+    ],
+    "users": [
+      {
+        "id": "USR-1042-01",
+        "customer_id": "CUST-1042",
+        "email": "mira.kulkarni.1042@example.invalid",
+        "name": "Mira Kulkarni",
+        "last_login_at": "2026-09-28T18:22:00Z"
+      },
+      {
+        "id": "USR-2088-01",
+        "customer_id": "CUST-2088",
+        "email": "tomas.ferreira.2088@example.invalid",
+        "name": "Tomas Ferreira",
+        "last_login_at": "2026-07-03T07:41:00Z"
+      },
+      {
+        "id": "USR-3175-01",
+        "customer_id": "CUST-3175",
+        "email": "aiko.tanaka.3175@example.invalid",
+        "name": "Aiko Tanaka",
+        "last_login_at": "2026-10-01T23:10:00Z"
+      },
+      {
+        "id": "USR-4410-01",
+        "customer_id": "CUST-4410",
+        "email": "daniel.okafor.4410@example.invalid",
+        "name": "Daniel Okafor",
+        "last_login_at": "2026-08-30T16:05:00Z"
+      },
+      {
+        "id": "USR-7001-01",
+        "customer_id": "CUST-7001",
+        "email": "lena.hoffmann.7001@example.invalid",
+        "name": "Lena Hoffmann",
+        "last_login_at": "2025-12-01T10:00:00Z"
+      },
+      {
+        "id": "USR-9001-01",
+        "customer_id": "CUST-9001",
+        "email": "priya.raman.9001@example.invalid",
+        "name": "Priya Raman",
+        "last_login_at": "2026-09-30T09:00:00Z"
+      },
+      {
+        "id": "USR-9002-01",
+        "customer_id": "CUST-9002",
+        "email": "arjun.mehta.9002@example.invalid",
+        "name": "Arjun Mehta",
+        "last_login_at": "2026-09-30T09:00:00Z"
+      },
+      {
+        "id": "USR-9003-01",
+        "customer_id": "CUST-9003",
+        "email": "sofia.rossi.9003@example.invalid",
+        "name": "Sofia Rossi",
+        "last_login_at": "2026-09-30T09:00:00Z"
+      }
+    ],
+    "addresses": [
+      {
+        "id": "ADDR-1042-01",
+        "customer_id": "CUST-1042",
+        "line1": "42 Synthetic Lane, Panjim",
+        "city": "Goa",
+        "postal_code": "403001",
+        "country": "IN"
+      },
+      {
+        "id": "ADDR-1042-02",
+        "customer_id": "CUST-1042",
+        "line1": "7 Fixture Road, Margao",
+        "city": "Goa",
+        "postal_code": "403601",
+        "country": "IN"
+      },
+      {
+        "id": "ADDR-2088-01",
+        "customer_id": "CUST-2088",
+        "line1": "18 Rua Exemplo",
+        "city": "Lisbon",
+        "postal_code": "1100-001",
+        "country": "PT"
+      },
+      {
+        "id": "ADDR-3175-01",
+        "customer_id": "CUST-3175",
+        "line1": "3-1 Sample Chome",
+        "city": "Tokyo",
+        "postal_code": "100-0001",
+        "country": "JP"
+      },
+      {
+        "id": "ADDR-7001-01",
+        "customer_id": "CUST-7001",
+        "line1": "Beispielstrasse 12",
+        "city": "Berlin",
+        "postal_code": "10115",
+        "country": "DE"
+      },
+      {
+        "id": "ADDR-9001-01",
+        "customer_id": "CUST-9001",
+        "line1": "9 Placeholder Layout",
+        "city": "Bengaluru",
+        "postal_code": "560001",
+        "country": "IN"
+      }
+    ],
+    "orders": [
+      {
+        "id": "ORD-1042-01",
+        "customer_id": "CUST-1042",
+        "total": 129.0,
+        "currency": "INR",
+        "created_at": "2026-03-02T12:00:00Z"
+      },
+      {
+        "id": "ORD-2088-01",
+        "customer_id": "CUST-2088",
+        "total": 59.0,
+        "currency": "EUR",
+        "created_at": "2026-04-10T09:00:00Z"
+      },
+      {
+        "id": "ORD-2088-02",
+        "customer_id": "CUST-2088",
+        "total": 240.0,
+        "currency": "EUR",
+        "created_at": "2026-05-10T09:00:00Z"
+      },
+      {
+        "id": "ORD-7001-01",
+        "customer_id": "CUST-7001",
+        "total": 89.0,
+        "currency": "EUR",
+        "created_at": "2025-05-05T09:00:00Z"
+      }
+    ],
+    "order_items": [
+      {
+        "id": "ITEM-1042-01",
+        "order_id": "ORD-1042-01",
+        "sku": "NOISE-CANCEL-01",
+        "quantity": 1
+      },
+      {
+        "id": "ITEM-2088-011",
+        "order_id": "ORD-2088-01",
+        "sku": "HEADSET-02",
+        "quantity": 1
+      },
+      {
+        "id": "ITEM-2088-021",
+        "order_id": "ORD-2088-02",
+        "sku": "MIC-PRO-01",
+        "quantity": 1
+      },
+      {
+        "id": "ITEM-2088-022",
+        "order_id": "ORD-2088-02",
+        "sku": "STAND-01",
+        "quantity": 1
+      },
+      {
+        "id": "ITEM-7001-01",
+        "order_id": "ORD-7001-01",
+        "sku": "HEADSET-02",
+        "quantity": 1
+      }
+    ],
+    "payments": [
+      {
+        "id": "PAY-1042-01",
+        "order_id": "ORD-1042-01",
+        "provider_reference": "pi_demo_1042",
+        "billing_email": "mira.kulkarni.1042@example.invalid",
+        "amount": 129.0
+      },
+      {
+        "id": "PAY-2088-01",
+        "order_id": "ORD-2088-01",
+        "provider_reference": "pi_demo_2088_1",
+        "billing_email": "tomas.ferreira.2088@example.invalid",
+        "amount": 59.0
+      },
+      {
+        "id": "PAY-2088-02",
+        "order_id": "ORD-2088-02",
+        "provider_reference": "pi_demo_2088_2",
+        "billing_email": "tomas.ferreira.2088@example.invalid",
+        "amount": 240.0
+      },
+      {
+        "id": "PAY-7001-01",
+        "order_id": "ORD-7001-01",
+        "provider_reference": "pi_demo_7001",
+        "billing_email": "lena.hoffmann.7001@example.invalid",
+        "amount": 89.0
+      }
+    ],
+    "support_tickets": [
+      {
+        "id": "TKT-1042-01",
+        "customer_id": "CUST-1042",
+        "subject": "Microphone not detected after update",
+        "status": "closed"
+      },
+      {
+        "id": "TKT-3175-01",
+        "customer_id": "CUST-3175",
+        "subject": "Hotkey conflicts with IME",
+        "status": "closed"
+      },
+      {
+        "id": "TKT-3175-02",
+        "customer_id": "CUST-3175",
+        "subject": "Export my transcripts",
+        "status": "closed"
+      }
+    ],
+    "support_messages": [
+      {
+        "id": "MSG-1042-01",
+        "customer_id": "CUST-1042",
+        "ticket_id": "TKT-1042-01",
+        "body": "Hi, this is Mira - my mic stopped working after the 4.2 update."
+      },
+      {
+        "id": "MSG-3175-01",
+        "customer_id": "CUST-3175",
+        "ticket_id": "TKT-3175-01",
+        "body": "Synthetic message 1 from Aiko about her workflow."
+      },
+      {
+        "id": "MSG-3175-02",
+        "customer_id": "CUST-3175",
+        "ticket_id": "TKT-3175-01",
+        "body": "Synthetic message 2 from Aiko about her workflow."
+      },
+      {
+        "id": "MSG-3175-03",
+        "customer_id": "CUST-3175",
+        "ticket_id": "TKT-3175-01",
+        "body": "Synthetic message 3 from Aiko about her workflow."
+      },
+      {
+        "id": "MSG-3175-04",
+        "customer_id": "CUST-3175",
+        "ticket_id": "TKT-3175-02",
+        "body": "Synthetic message 4 from Aiko about her workflow."
+      },
+      {
+        "id": "MSG-3175-05",
+        "customer_id": "CUST-3175",
+        "ticket_id": "TKT-3175-02",
+        "body": "Synthetic message 5 from Aiko about her workflow."
+      }
+    ],
+    "analytics_events": [
+      {
+        "id": "EVT-1042-01",
+        "customer_id": "CUST-1042",
+        "event_name": "dictation_session",
+        "payload": {
+          "device": "macbook",
+          "words": 1832
+        }
+      },
+      {
+        "id": "EVT-2088-01",
+        "customer_id": "CUST-2088",
+        "event_name": "app_opened",
+        "payload": {
+          "seq": 1
+        }
+      },
+      {
+        "id": "EVT-2088-02",
+        "customer_id": "CUST-2088",
+        "event_name": "dictation_session",
+        "payload": {
+          "seq": 2
+        }
+      },
+      {
+        "id": "EVT-2088-03",
+        "customer_id": "CUST-2088",
+        "event_name": "settings_changed",
+        "payload": {
+          "seq": 3
+        }
+      },
+      {
+        "id": "EVT-3175-01",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 437
+        }
+      },
+      {
+        "id": "EVT-3175-02",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 474
+        }
+      },
+      {
+        "id": "EVT-3175-03",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 511
+        }
+      },
+      {
+        "id": "EVT-3175-04",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 548
+        }
+      },
+      {
+        "id": "EVT-3175-05",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 585
+        }
+      },
+      {
+        "id": "EVT-3175-06",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 622
+        }
+      },
+      {
+        "id": "EVT-3175-07",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 659
+        }
+      },
+      {
+        "id": "EVT-3175-08",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 696
+        }
+      },
+      {
+        "id": "EVT-3175-09",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 733
+        }
+      },
+      {
+        "id": "EVT-3175-10",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 770
+        }
+      },
+      {
+        "id": "EVT-3175-11",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 807
+        }
+      },
+      {
+        "id": "EVT-3175-12",
+        "customer_id": "CUST-3175",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 844
+        }
+      },
+      {
+        "id": "EVT-7001-01",
+        "customer_id": "CUST-7001",
+        "event_name": "dictation_session",
+        "payload": {
+          "words": 220
+        }
+      },
+      {
+        "id": "EVT-9001-01",
+        "customer_id": "CUST-9001",
+        "event_name": "team_dictation",
+        "payload": {
+          "org": "ORG-501"
+        }
+      },
+      {
+        "id": "EVT-9002-01",
+        "customer_id": "CUST-9002",
+        "event_name": "team_dictation",
+        "payload": {
+          "org": "ORG-501"
+        }
+      },
+      {
+        "id": "EVT-9003-01",
+        "customer_id": "CUST-9003",
+        "event_name": "team_dictation",
+        "payload": {
+          "org": "ORG-501"
+        }
+      }
+    ],
+    "marketing_profiles": [
+      {
+        "id": "MKT-1042-01",
+        "customer_id": "CUST-1042",
+        "email": "mira.kulkarni.1042@example.invalid",
+        "preferences": {
+          "newsletter": true,
+          "product_updates": true
+        }
+      },
+      {
+        "id": "MKT-2088-01",
+        "customer_id": "CUST-2088",
+        "email": "tomas.ferreira.2088@example.invalid",
+        "preferences": {
+          "newsletter": false
+        }
+      },
+      {
+        "id": "MKT-3175-01",
+        "customer_id": "CUST-3175",
+        "email": "aiko.tanaka.3175@example.invalid",
+        "preferences": {
+          "newsletter": true
+        }
+      },
+      {
+        "id": "MKT-4410-01",
+        "customer_id": "CUST-4410",
+        "email": "daniel.okafor.4410@example.invalid",
+        "preferences": {
+          "newsletter": true
+        }
+      }
+    ],
+    "audit_records": [
+      {
+        "id": "AUD-1042-01",
+        "customer_id": "CUST-1042",
+        "event": "terms_accepted",
+        "created_at": "2024-02-11T10:04:00Z"
+      },
+      {
+        "id": "AUD-2088-01",
+        "customer_id": "CUST-2088",
+        "event": "terms_accepted",
+        "created_at": "2023-11-19T08:30:00Z"
+      },
+      {
+        "id": "AUD-3175-01",
+        "customer_id": "CUST-3175",
+        "event": "terms_accepted",
+        "created_at": "2022-06-05T03:15:00Z"
+      },
+      {
+        "id": "AUD-7001-01",
+        "customer_id": "CUST-7001",
+        "event": "terms_accepted",
+        "created_at": "2021-01-20T11:00:00Z"
+      }
+    ],
+    "organizations": [
+      {
+        "id": "ORG-501",
+        "owner_customer_id": "CUST-9001",
+        "name": "Raman Studio",
+        "billing_email": "priya.raman.9001@example.invalid"
+      }
+    ],
+    "organization_members": [
+      {
+        "id": "MEM-501-9001",
+        "org_id": "ORG-501",
+        "customer_id": "CUST-9001",
+        "role": "owner"
+      },
+      {
+        "id": "MEM-501-9002",
+        "org_id": "ORG-501",
+        "customer_id": "CUST-9002",
+        "role": "member"
+      },
+      {
+        "id": "MEM-501-9003",
+        "org_id": "ORG-501",
+        "customer_id": "CUST-9003",
+        "role": "member"
+      }
+    ]
+  },
+  "objects": {
+    "customer-uploads": [
+      {
+        "key": "CUST-1042/profile.txt",
+        "customerId": "CUST-1042",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic profile image for CUST-1042"
+      },
+      {
+        "key": "CUST-1042/id-document.txt",
+        "customerId": "CUST-1042",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic identity document for CUST-1042"
+      },
+      {
+        "key": "CUST-2088/avatar.txt",
+        "customerId": "CUST-2088",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic avatar for CUST-2088"
+      },
+      {
+        "key": "CUST-3175/voice-sample-1.txt",
+        "customerId": "CUST-3175",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic voice sample 1 for CUST-3175"
+      },
+      {
+        "key": "CUST-3175/voice-sample-2.txt",
+        "customerId": "CUST-3175",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic voice sample 2 for CUST-3175"
+      },
+      {
+        "key": "CUST-3175/voice-sample-3.txt",
+        "customerId": "CUST-3175",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic voice sample 3 for CUST-3175"
+      },
+      {
+        "key": "CUST-7001/contract-2021.txt",
+        "customerId": "CUST-7001",
+        "contentType": "text/plain",
+        "storageClass": "ARCHIVE",
+        "lastModified": "2021-02-01T00:00:00Z",
+        "body": "synthetic signed contract for CUST-7001"
+      },
+      {
+        "key": "CUST-7001/avatar.txt",
+        "customerId": "CUST-7001",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic avatar for CUST-7001"
+      },
+      {
+        "key": "CUST-9001/team-logo.txt",
+        "customerId": "CUST-9001",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic team logo for CUST-9001"
+      }
+    ],
+    "support-attachments": [
+      {
+        "key": "CUST-1042/ticket-819.txt",
+        "customerId": "CUST-1042",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic support attachment for CUST-1042"
+      },
+      {
+        "key": "CUST-3175/screenshot-1.txt",
+        "customerId": "CUST-3175",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic screenshot 1 for CUST-3175"
+      },
+      {
+        "key": "CUST-3175/screenshot-2.txt",
+        "customerId": "CUST-3175",
+        "contentType": "text/plain",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "synthetic screenshot 2 for CUST-3175"
+      }
+    ],
+    "exports": [
+      {
+        "key": "CUST-1042-export.json",
+        "customerId": "CUST-1042",
+        "contentType": "application/json",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "{\"customerId\": \"CUST-1042\", \"synthetic\": true}"
+      },
+      {
+        "key": "CUST-2088-export.json",
+        "customerId": "CUST-2088",
+        "contentType": "application/json",
+        "storageClass": "STANDARD",
+        "lastModified": "2026-08-14T09:12:00Z",
+        "body": "{\"customerId\": \"CUST-2088\", \"synthetic\": true}"
+      }
+    ],
+    "eraseops-backups": []
+  }
+}
