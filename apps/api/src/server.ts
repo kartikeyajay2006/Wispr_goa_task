@@ -11,23 +11,25 @@ import {createBackupManifest, verifyBackupManifest} from '../../../packages/back
 import {verifyPlanInSandbox} from '../../../packages/sandbox/src/index.js';
 import {calculateBlastRadius} from '../../../packages/blast-radius/src/index.js';
 import {generateReport, deriveWorkflowMetrics} from '../../../packages/report/src/index.js';
-import {InMemoryRuntimeStore} from './runtime-store.js';
+import {InMemoryRuntimeStore, createMetadataRepository} from './runtime-store.js';
 import {DestructiveRequestGuard} from './destructive-guard.js';
 import {executeApprovedWorkflow} from './execution-service.js';
 import {generateDeletionPlan} from '../../../packages/workflow/src/planner.js';
-import {loadConfig} from './config.js';
+import {loadConfig, loadEnvFile} from './config.js';
 import {initialWorkflowState, transitionWorkflow} from './state-machine.js';
 
+if (process.env.ERASEROPS_START_SERVER === 'true') loadEnvFile();
+const runtimeConfig = loadConfig(process.env);
+
 export const app = express();
-app.use(cors());
+app.use(cors({origin: runtimeConfig.corsOrigin === '*' ? true : runtimeConfig.corsOrigin.split(',').map(origin => origin.trim())}));
 app.use(express.json());
 
-const runtimeConfig = loadConfig(process.env);
-const store = new InMemoryRuntimeStore();
-const localObjectClient = runtimeConfig.connectorMode === 'local' ? new MinioHttpObjectClient({endpoint: process.env.MINIO_ENDPOINT ?? 'http://localhost:9000', accessKey: process.env.MINIO_ACCESS_KEY ?? 'eraserops', secretKey: process.env.MINIO_SECRET_KEY ?? 'eraserops_local_only'}) : undefined;
-const postgres = runtimeConfig.connectorMode === 'local' ? new PostgresLiveConnector(new PostgresAdapter(new Pool({connectionString: process.env.DATABASE_URL ?? 'postgres://eraseops:eraseops_local_only@localhost:5432/eraseops'}), localObjectClient)) : new MockPostgresConnector();
+const store = new InMemoryRuntimeStore(createMetadataRepository(runtimeConfig));
+const localObjectClient = runtimeConfig.connectorMode === 'local' ? new MinioHttpObjectClient(runtimeConfig.minio) : undefined;
+const postgres = runtimeConfig.connectorMode === 'local' ? new PostgresLiveConnector(new PostgresAdapter(new Pool({connectionString: runtimeConfig.databaseUrl}), localObjectClient)) : new MockPostgresConnector();
 const minio = runtimeConfig.connectorMode === 'local' ? new MinioLiveConnector(new MinioAdapter(localObjectClient!, runtimeConfig.allowlistedBuckets), runtimeConfig.allowlistedBuckets) : new MockMinioConnector();
-const guard = new DestructiveRequestGuard();
+const guard = new DestructiveRequestGuard(runtimeConfig.rateLimit.maxAttempts, runtimeConfig.rateLimit.windowMs);
 const ctx = {demoMode: true as const, allowlistedHosts: runtimeConfig.allowlistedHosts, allowlistedBuckets: runtimeConfig.allowlistedBuckets};
 
 const countByAction = (items: Asset[], action: 'delete' | 'redact' | 'retain') => items.filter(item => (item.classification === 'deletable' ? 'delete' : item.classification === 'anonymize' ? 'redact' : 'retain') === action).reduce((total, item) => total + item.count, 0);
@@ -80,7 +82,7 @@ app.post('/api/requests/:id/approve', async (req, res) => {
   if (!workflow) return res.status(404).json({error: 'Not found'});
   if (req.body?.confirmation !== workflow.customerId) return res.status(400).json({error: `Type ${workflow.customerId} to approve destructive execution`});
   if (workflow.stage !== 'approval' || workflow.plan.status !== 'pending_approval') return res.status(409).json({error: 'Invalid workflow transition'});
-  workflow.approval = {token: randomUUID(), expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(), used: false, planHash: workflow.plan.hash};
+  workflow.approval = {token: randomUUID(), expiresAt: new Date(Date.now() + runtimeConfig.approvalTtlMs).toISOString(), used: false, planHash: workflow.plan.hash};
   transitionWorkflow(workflow, 'APPROVED');
   workflow.plan.status = 'approved'; workflow.stage = 'execution'; workflow.status = 'ready';
   store.append(workflow.requestId, {stage: 'approval', message: 'Human approval recorded for exact plan hash.', actor: 'operator', planHash: workflow.plan.hash});
@@ -122,6 +124,8 @@ app.get('/api/requests/:id/audit', (req, res) => { const workflow = store.get(re
 app.get('/api/requests/:id/plan', (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); return res.json(generateDeletionPlan({requestId: workflow.requestId, customerId: workflow.customerId, assets: workflow.assets, createdAt: workflow.plan.createdAt})); });
 app.get('/api/requests/:id/backup', (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); const manifest = (workflow as any).backup; if (!manifest) return res.status(404).json({error: 'Backup manifest not found'}); return res.json({manifest, verification: verifyBackupManifest(manifest, {requestId: workflow.requestId, customerId: workflow.customerId, planHash: workflow.plan.hash})}); });
 app.get('/api/requests/:id/verification', async (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); const results = await Promise.all([postgres.verify(workflow.customerId), minio.verify(workflow.customerId)]); return res.json({requestId: workflow.requestId, customerId: workflow.customerId, verified: results.every(result => result.verified && result.remainingMatches === 0), results, remainingMatches: results.reduce((total, result) => total + result.remainingMatches, 0)}); });
-app.post('/api/reset', async (_req, res) => { try { await store.clear(); res.json({ok: true, reset: true}); } catch (error) { res.status(503).json({error: error instanceof Error ? error.message : 'Reset failed'}); } });
+const resetDemo = async (_req: express.Request, res: express.Response) => { try { await store.clear(); res.json({ok: true, reset: true}); } catch (error) { res.status(503).json({error: error instanceof Error ? error.message : 'Reset failed'}); } };
+app.post('/api/demo/reset', resetDemo);
+app.post('/api/reset', resetDemo);
 
-if (process.env.ERASEROPS_START_SERVER === 'true') app.listen(3001, () => console.log('EraserOps API on http://localhost:3001 (demo mode)'));
+if (process.env.ERASEROPS_START_SERVER === 'true') app.listen(runtimeConfig.port, () => console.log(`EraseOps API on http://localhost:${runtimeConfig.port} (demo mode, ${runtimeConfig.connectorMode} connectors)`));

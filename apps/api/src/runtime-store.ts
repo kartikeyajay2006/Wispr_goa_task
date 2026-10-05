@@ -3,7 +3,7 @@ import {workflowResponseSchema,type Stage,type Workflow} from '../../../packages
 import {AuditChain} from '../../../packages/audit/src/index.js';
 import {InMemoryWorkflowRepository,PostgresWorkflowRepository,type StoredWorkflow,type WorkflowRepository} from '../../../packages/storage/src/index.js';
 
-const createMetadataRepository=():WorkflowRepository=>process.env.ERASEROPS_PERSISTENCE==='postgres'?new PostgresWorkflowRepository(new Pool({connectionString:process.env.DATABASE_URL??'postgres://eraseops:eraseops@localhost:5432/eraseops'})):new InMemoryWorkflowRepository();
+export const createMetadataRepository=(config:{persistence:'memory'|'postgres';databaseUrl:string}):WorkflowRepository=>config.persistence==='postgres'?new PostgresWorkflowRepository(new Pool({connectionString:config.databaseUrl})):new InMemoryWorkflowRepository();
 type PersistenceStatus={status:'pending'|'persisted'|'failed';error?:string};
 const storedMetadata=(w:Workflow):StoredWorkflow=>({requestId:w.requestId,customerId:w.customerId,status:w.status,planHash:w.plan.hash,createdAt:w.plan.createdAt,payload:w});
 
@@ -11,7 +11,7 @@ export class InMemoryRuntimeStore{
   private readonly data=new Map<string,Workflow>();
   private readonly chains=new Map<string,AuditChain>();
   private readonly persistence=new Map<string,PersistenceStatus>();
-  private readonly metadata=createMetadataRepository();
+  constructor(private readonly metadata:WorkflowRepository=new InMemoryWorkflowRepository()){}
   set(id:string,w:Workflow){
     workflowResponseSchema.parse(w);
     const chain=new AuditChain();

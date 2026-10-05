@@ -12,3 +12,10 @@ coverage/
 .DS_Store
 *.log
 *.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
