@@ -6,8 +6,9 @@ export type BackupResult = {backupId: string; checksum: string; resources: numbe
 export interface Connector { readonly system: DataSystem; discoverCustomerData(customerId: string, ctx: ConnectorContext): Promise<Asset[]>; inspectDependencies?(customerId: string): Promise<Dependency[]>; previewAction(action: DeletionAction): Promise<{safe: boolean; affected: number; reason: string}>; backupCustomerData(customerId: string, requestId: string): Promise<BackupResult>; execute(action: DeletionAction, planHash: string, ctx: {approved: boolean}): Promise<ExecutionResult>; verify(customerId: string): Promise<VerificationResult>; }
 
 const assertDemo = (ctx: ConnectorContext) => { if (!ctx.demoMode) throw new Error('Production credentials are disabled in demo connector'); };
-export const SEEDED_CUSTOMERS = ['CUST-1042', 'CUST-2088', 'CUST-7001', 'CUST-9001'] as const;
-export const assertSeededCustomer = (customerId: string) => { if (!(SEEDED_CUSTOMERS as readonly string[]).includes(customerId)) throw new Error(`Demo customer is not seeded: ${customerId}`); return customerId; };
+export const assertCustomerId = (customerId: string) => { if (!/^CUST-\d{4}$/.test(customerId)) throw new Error(`Invalid customer ID: ${customerId}`); return customerId; };
+// Legacy fixture helper retained for compatibility with the fixture-focused tests.
+export const assertSeededCustomer = (customerId: string) => { if (!['CUST-1042', 'CUST-2088', 'CUST-7001', 'CUST-9001'].includes(customerId)) throw new Error(`Demo customer is not seeded: ${customerId}`); return customerId; };
 
 const postgresAssets = (customerId: string): Asset[] => [
   {id: `pg:customers:${customerId}`, system: 'PostgreSQL', table: 'customers', label: 'Customer profile', classification: 'anonymize', fields: ['name', 'email', 'phone'], dependencyIds: [], risk: 'high', count: 1},
@@ -25,7 +26,7 @@ const postgresAssets = (customerId: string): Asset[] => [
 
 export class MockPostgresConnector implements Connector {
   readonly system: DataSystem = {id: 'postgres-demo', name: 'PostgreSQL Demo', type: 'postgresql', connectionStatus: 'mock', capabilities: ['discover', 'preview', 'backup', 'execute', 'verify']};
-  async inspectDependencies(customerId: string): Promise<Dependency[]> { assertSeededCustomer(customerId); return customerId === 'CUST-9001' ? [{source: 'customer', target: 'organization', relationshipType: 'shared account', constraintType: 'business', required: true, risk: 'high'}] : []; }
+  async inspectDependencies(customerId: string): Promise<Dependency[]> { assertCustomerId(customerId); return customerId === 'CUST-9001' ? [{source: 'customer', target: 'organization', relationshipType: 'shared account', constraintType: 'business', required: true, risk: 'high'}] : []; }
   async discoverCustomerData(customerId: string, ctx: ConnectorContext): Promise<Asset[]> { assertDemo(ctx); assertSeededCustomer(customerId); if (!ctx.allowlistedHosts.includes('postgres')) throw new Error('PostgreSQL host is not allowlisted'); if (customerId === 'CUST-9001') return [{id: 'pg:org:9001', system: 'PostgreSQL', table: 'organizations', label: 'Shared enterprise account', classification: 'retain', fields: ['org_id'], dependencyIds: ['pg:users:9001', 'pg:users:9002'], risk: 'high', count: 1}]; return postgresAssets(customerId); }
   async previewAction(action: DeletionAction) { return {safe: action.actionType !== 'delete' || !action.resource.includes('organizations'), affected: action.recordCount, reason: action.actionType === 'delete' ? 'Mock parameterized delete preview' : 'No destructive mutation requested'}; }
   async backupCustomerData(customerId: string, requestId: string) { const resourceEvidence = postgresAssets(customerId).map(asset => ({resource: asset.id, kind: 'database' as const, records: asset.count, checksum: `mock:${requestId}:${asset.id}:${asset.count}`})); return {backupId: `backup-${requestId}`, checksum: `mock-${customerId}-checksum`, resources: 11, resourceEvidence, artifacts: []}; }
@@ -41,8 +42,8 @@ const minioAssets = (customerId: string): Asset[] => [
 
 export class MockMinioConnector implements Connector {
   readonly system: DataSystem = {id: 'minio-demo', name: 'MinIO Demo', type: 'minio', connectionStatus: 'mock', capabilities: ['discover', 'preview', 'backup', 'execute', 'verify']};
-  async inspectDependencies(customerId: string) { assertSeededCustomer(customerId); return [] as Dependency[]; }
-  async discoverCustomerData(customerId: string, ctx: ConnectorContext): Promise<Asset[]> { assertDemo(ctx); assertSeededCustomer(customerId); for (const bucket of ['customer-uploads', 'support-attachments', 'exports']) if (!ctx.allowlistedBuckets.includes(bucket)) throw new Error(`MinIO bucket is not allowlisted: ${bucket}`); return minioAssets(customerId); }
+  async inspectDependencies(customerId: string) { assertCustomerId(customerId); return [] as Dependency[]; }
+  async discoverCustomerData(customerId: string, ctx: ConnectorContext): Promise<Asset[]> { assertDemo(ctx); assertCustomerId(customerId); for (const bucket of ['customer-uploads', 'support-attachments', 'exports']) if (!ctx.allowlistedBuckets.includes(bucket)) throw new Error(`MinIO bucket is not allowlisted: ${bucket}`); return minioAssets(customerId); }
   async previewAction(action: DeletionAction) { return {safe: true, affected: action.recordCount, reason: 'Mock object deletion preview'}; }
   async backupCustomerData(customerId: string, requestId: string) { const resourceEvidence = minioAssets(customerId).map(asset => ({resource: asset.id, kind: 'object' as const, records: asset.count, checksum: `mock:${requestId}:${asset.id}:${asset.count}`})); return {backupId: `backup-${requestId}`, checksum: `mock-${customerId}-objects-checksum`, resources: 4, resourceEvidence, artifacts: []}; }
   async execute(action: DeletionAction, _planHash: string, ctx: {approved: boolean}) { if (!ctx.approved) throw new Error('Human approval required'); return {actionId: action.id, status: 'completed' as const, startedAt: new Date().toISOString(), completedAt: new Date().toISOString(), affectedRecords: action.recordCount}; }

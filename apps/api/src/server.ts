@@ -52,7 +52,7 @@ export async function makeWorkflow(body: unknown) {
   const blast = calculateBlastRadius(items);
   const dependencies = [...await postgres.inspectDependencies(input.customerId), ...await minio.inspectDependencies(input.customerId)];
   const events = [
-    event('intake', requestId, 'Request accepted; demo allowlist matched.'),
+    event('intake', requestId, 'Request accepted; configured connector allowlist matched.'),
     event('discovery', requestId, 'Connected systems discovered through allowlisted connectors.', {details: {systems: ['PostgreSQL', 'MinIO'], secretsRedacted: true}}),
     event('footprint', requestId, 'Personal data footprint assembled.', {planHash: plan.hash, details: {assetCount: assets.length}}),
     event('dependencies', requestId, sandbox.status === 'failed' ? 'Unsafe cross-customer dependency detected.' : 'Dependency graph resolved.', {planHash: plan.hash, details: {dependencyCount: dependencies.length}}),
@@ -71,7 +71,7 @@ export async function makeWorkflow(body: unknown) {
   return workflow;
 }
 
-app.get('/health', (_req, res) => res.json({ok: true, mode: 'demo', allowlist: runtimeConfig.allowlistedSystems}));
+app.get('/health', (_req, res) => res.json({ok: true, mode: runtimeConfig.connectorMode, allowlist: runtimeConfig.allowlistedSystems}));
 app.post('/api/requests', async (req, res) => { try { res.status(201).json(await makeWorkflow(req.body)); } catch (error) { res.status(400).json({error: error instanceof Error ? error.message : 'Invalid request'}); } });
 app.get('/api/requests/:id', (req, res) => { const workflow = store.get(req.params.id); workflow ? res.json(workflow) : res.status(404).json({error: 'Not found'}); });
 
@@ -122,6 +122,6 @@ app.get('/api/requests/:id/audit', (req, res) => { const workflow = store.get(re
 app.get('/api/requests/:id/plan', (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); return res.json(generateDeletionPlan({requestId: workflow.requestId, customerId: workflow.customerId, assets: workflow.assets, createdAt: workflow.plan.createdAt})); });
 app.get('/api/requests/:id/backup', (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); const manifest = (workflow as any).backup; if (!manifest) return res.status(404).json({error: 'Backup manifest not found'}); return res.json({manifest, verification: verifyBackupManifest(manifest, {requestId: workflow.requestId, customerId: workflow.customerId, planHash: workflow.plan.hash})}); });
 app.get('/api/requests/:id/verification', async (req, res) => { const workflow = store.get(req.params.id); if (!workflow) return res.status(404).json({error: 'Not found'}); const results = await Promise.all([postgres.verify(workflow.customerId), minio.verify(workflow.customerId)]); return res.json({requestId: workflow.requestId, customerId: workflow.customerId, verified: results.every(result => result.verified && result.remainingMatches === 0), results, remainingMatches: results.reduce((total, result) => total + result.remainingMatches, 0)}); });
-app.post('/api/demo/reset', async (_req, res) => { try { await store.clear(); res.json({ok: true, mode: 'demo', reset: true}); } catch (error) { res.status(503).json({error: error instanceof Error ? error.message : 'Reset failed'}); } });
+app.post('/api/reset', async (_req, res) => { try { await store.clear(); res.json({ok: true, reset: true}); } catch (error) { res.status(503).json({error: error instanceof Error ? error.message : 'Reset failed'}); } });
 
 if (process.env.ERASEROPS_START_SERVER === 'true') app.listen(3001, () => console.log('EraserOps API on http://localhost:3001 (demo mode)'));
