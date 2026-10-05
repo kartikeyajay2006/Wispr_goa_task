@@ -98,3 +98,54 @@ describe('HTTP erasure lifecycle', () => {
     expect((await create('CUST-4410')).body.blastRadius.deletable).toBe(2);
   });
 });
+
+describe('HTTP read models', () => {
+  it('lists every customer in the systems with a live footprint and masked identity', async () => {
+    const {body} = await call('GET', '/api/customers');
+    expect(body.map((customer: any) => customer.customerId)).toEqual(['CUST-1042', 'CUST-2088', 'CUST-3175', 'CUST-4410', 'CUST-7001', 'CUST-9001', 'CUST-9002', 'CUST-9003']);
+    const mira = body.find((customer: any) => customer.customerId === 'CUST-1042');
+    expect(mira).toMatchObject({displayName: 'Mira K.', status: 'active', residual: 12, footprint: {records: 16, resources: 14, systems: ['PostgreSQL', 'MinIO']}});
+    expect(mira.email).toMatch(/^m•+@example\.invalid$/);
+    expect(body.find((customer: any) => customer.customerId === 'CUST-9001').signals[0]).toContain('owned by CUST-9002');
+  });
+
+  it('marks a customer erased once execution succeeds and hides the redacted name', async () => {
+    const created = await create('CUST-4410');
+    const approved = await call('POST', `/api/requests/${created.body.requestId}/approve`, {confirmation: 'CUST-4410'});
+    await call('POST', `/api/requests/${created.body.requestId}/execute-guarded`, {approvalId: approved.body.approval.token, planHash: approved.body.plan.hash});
+    const daniel = (await call('GET', '/api/customers')).body.find((customer: any) => customer.customerId === 'CUST-4410');
+    expect(daniel).toMatchObject({status: 'erased', residual: 0, latestRequest: {state: 'COMPLETED'}});
+    expect(daniel.displayName).toBeUndefined();
+    const overview = (await call('GET', '/api/overview')).body;
+    expect(overview.customers.erased).toBe(1);
+    expect(overview.requests.executed).toBe(1);
+    expect(overview.records.changed).toBe(3);
+    expect(overview.audit.verified).toBe(overview.audit.chains);
+  });
+
+  it('lists requests newest first with blocking reasons', async () => {
+    await create('CUST-7001');
+    await create('CUST-2088');
+    const {body} = await call('GET', '/api/requests');
+    expect(body.map((request: any) => request.customerId)).toEqual(['CUST-2088', 'CUST-7001']);
+    expect(body[1].blockedBy).toContain('ARCHIVE storage');
+  });
+
+  it('reports system inventory, policy rules and the audit log from live state', async () => {
+    const systems = (await call('GET', '/api/systems')).body;
+    expect(systems.map((system: any) => system.name)).toEqual(['PostgreSQL', 'MinIO']);
+    expect(systems[0].inventory.find((entry: any) => entry.resource === 'analytics_events').records).toBe(20);
+    const policies = (await call('GET', '/api/policies')).body;
+    expect(policies.rules.find((rule: any) => rule.resource === 'orders')).toMatchObject({classification: 'retain', retention: '7 years'});
+    expect(policies.controls.approvalTtlMinutes).toBe(15);
+    await create('CUST-2088');
+    const audit = (await call('GET', '/api/audit')).body;
+    expect(audit.events[0].customerId).toBe('CUST-2088');
+    expect(audit.chains.every((chain: any) => chain.valid)).toBe(true);
+  });
+
+  it('returns JSON 404 for unknown routes and requests', async () => {
+    expect((await call('GET', '/api/nope')).status).toBe(404);
+    expect((await call('GET', '/api/requests/00000000-0000-4000-8000-000000000000')).body.error).toContain('not found');
+  });
+});

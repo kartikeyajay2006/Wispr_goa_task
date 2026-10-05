@@ -13,6 +13,7 @@ import {InMemoryRuntimeStore, createMetadataRepository} from './runtime-store.js
 import {DestructiveRequestGuard} from './destructive-guard.js';
 import {loadConfig, loadEnvFile} from './config.js';
 import {HttpError, WorkflowService} from './workflow-service.js';
+import {auditLog, describePolicies, listCustomers, listRequests, listSystems, overview} from './read-models.js';
 
 if (process.env.ERASEROPS_START_SERVER === 'true') loadEnvFile();
 const runtimeConfig = loadConfig(process.env);
@@ -42,7 +43,15 @@ const route = (handler: Handler) => async (req: express.Request, res: express.Re
 const operator = (req: express.Request) => req.header('x-operator-identity') ?? undefined;
 const id = (req: express.Request) => String(req.params.id);
 
+const readDeps = {postgres, minio, store, context: ctx, config: runtimeConfig};
+
 app.get('/health', (_req, res) => res.json({ok: true, mode: runtimeConfig.connectorMode, allowlist: runtimeConfig.allowlistedSystems}));
+app.get('/api/overview', route(() => overview(readDeps)));
+app.get('/api/customers', route(() => listCustomers(readDeps)));
+app.get('/api/systems', route(() => listSystems(readDeps)));
+app.get('/api/policies', route(() => describePolicies(readDeps)));
+app.get('/api/audit', route(req => auditLog(readDeps, Math.min(Number(req.query.limit) || 200, 1000))));
+app.get('/api/requests', route(() => listRequests(readDeps)));
 app.post('/api/requests', route(async (req, res) => { res.status(201); return workflows.create(req.body, operator(req)); }));
 app.get('/api/requests/:id', route(req => workflows.get(id(req))));
 app.post('/api/requests/:id/approve', route(req => workflows.approve(id(req), req.body, operator(req))));

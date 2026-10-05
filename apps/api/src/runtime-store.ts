@@ -21,6 +21,7 @@ export class InMemoryRuntimeStore{
   }
   get(id:string){const w=this.data.get(id),chain=this.chains.get(id);if(!w||!chain)return w;const chained=chain.all();for(const item of w.events.slice(chained.length))chain.append({requestId:w.requestId,stage:item.stage,message:item.message,actor:item.actor,planHash:item.planHash,details:item.details});w.events=chain.all();return w;}
   async persist(id:string){const w=this.get(id);if(!w)throw new Error('Workflow not found');this.persistence.set(id,{status:'pending'});w.persistence={status:'pending'};try{await this.metadata.save(storedMetadata(w));this.persistence.set(id,{status:'persisted'});w.persistence={status:'persisted'};}catch(error){const detail=error instanceof Error?error.message:'Persistence failed';this.persistence.set(id,{status:'failed',error:detail});w.persistence={status:'failed',error:detail};throw error;}}
+  list(){return [...this.data.keys()].map(id=>this.get(id)!).filter(Boolean);}
   async clear(){this.data.clear();this.chains.clear();this.persistence.clear();await this.metadata.clear?.();}
   async loadAuthoritative(id:string){const stored=await this.metadata.get(id);return (stored?.payload as Workflow|undefined)??this.data.get(id);}
   persistenceStatus(id:string){return this.persistence.get(id)??{status:'failed' as const,error:'Workflow not found'};}
