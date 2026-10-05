@@ -1,0 +1,5 @@
+import {z} from 'zod';
+
+const configSchema = z.object({DEMO_MODE: z.enum(['true', 'false']).default('true'), CONNECTOR_MODE: z.enum(['mock', 'local']).default('mock'), ALLOWLIST_SYSTEMS: z.string().default('PostgreSQL,MinIO'), ALLOWLIST_HOSTS: z.string().default('postgres'), ALLOWLIST_BUCKETS: z.string().default('customer-uploads,support-attachments,exports,eraseops-backups')});
+export type EraserOpsConfig = {demoMode: boolean; connectorMode: 'mock' | 'local'; allowlistedSystems: string[]; allowlistedHosts: string[]; allowlistedBuckets: string[]};
+export function loadConfig(env: Record<string, string | undefined>): EraserOpsConfig { const parsed = configSchema.parse(env); if (parsed.DEMO_MODE !== 'true') throw new Error('Production execution is disabled; DEMO_MODE must be true'); return {demoMode: true, connectorMode: parsed.CONNECTOR_MODE, allowlistedSystems: parsed.ALLOWLIST_SYSTEMS.split(',').map(value => value.trim()).filter(Boolean), allowlistedHosts: parsed.ALLOWLIST_HOSTS.split(',').map(value => value.trim()).filter(Boolean), allowlistedBuckets: parsed.ALLOWLIST_BUCKETS.split(',').map(value => value.trim()).filter(Boolean)}; }

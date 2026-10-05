@@ -1,0 +1,7 @@
+import {assertTransition,type WorkflowState} from '../../../packages/shared/src/index.js';import {issueApproval,validateApproval,type ApprovalRecord} from '../../../packages/approval/src/index.js';
+export type WorkflowRecord={state:WorkflowState;customerId:string;planHash:string;dryRun?:boolean;approval?:ApprovalRecord};
+export function transition(w:WorkflowRecord,next:WorkflowState){assertTransition(w.state,next);w.state=next;return w;}
+export function approve(w:WorkflowRecord,confirmation:string,approver='operator'){if(confirmation!==w.customerId)throw new Error(`Type ${w.customerId} to approve destructive execution`);if(w.state!=='AWAITING_HUMAN_APPROVAL')throw new Error(`Cannot approve workflow in ${w.state}`);w.approval=issueApproval(w.planHash,approver);w.state='APPROVED';return w;}
+export function reject(w:WorkflowRecord){if(w.state!=='AWAITING_HUMAN_APPROVAL')throw new Error(`Cannot reject workflow in ${w.state}`);w.approval&& (w.approval.status='rejected');w.state='REJECTED';return w;}
+export function rollback(w:WorkflowRecord){if(!['SANDBOX_FAILED','REJECTED','EXECUTION_FAILED','VERIFICATION_FAILED'].includes(w.state))throw new Error(`Cannot roll back workflow in ${w.state}`);assertTransition(w.state,'ROLLED_BACK');w.state='ROLLED_BACK';return w;}
+export function executionEligibility(w:WorkflowRecord){if(w.dryRun)return {valid:false,reason:'dry-run request cannot execute destructive operations'};if(w.state!=='APPROVED')return {valid:false,reason:`workflow is ${w.state}`};return validateApproval(w.approval,w.planHash);}

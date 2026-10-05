@@ -1,0 +1,3 @@
+# EraserOps security model
+
+The model-facing surface is metadata-only. Credentials and raw customer values stay in connectors. Destructive actions are separate tools and require an approval bound to the current plan hash. Demo mode is local-only and allowlisted. Every audit event carries a previous-event hash and event hash. `infra/postgres/002_audit_chain.sql` defines the persistent append-only event contract with request-local sequence uniqueness and hash uniqueness; production persistence must insert events transactionally and never update or delete them. Destructive API calls should use the authoritative request/approval/plan guard and rate limiter in `apps/api/src/destructive-guard.ts`; the MCP boundary applies the same approval and rate-limit controls.

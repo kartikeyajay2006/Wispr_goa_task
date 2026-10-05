@@ -1,0 +1,6 @@
+import {randomUUID} from 'node:crypto';
+export type ApprovalRecord={id:string;planHash:string;approver:string;approvedAt:string;expiresAt:string;status:'approved'|'used'|'expired'|'rejected';singleUse:true};
+export function issueApproval(planHash:string,approver:string,ttlMs=15*60_000):ApprovalRecord{return {id:randomUUID(),planHash,approver,approvedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+ttlMs).toISOString(),status:'approved',singleUse:true};}
+export function validateApproval(a:ApprovalRecord|undefined,currentPlanHash:string){if(!a)return {valid:false,reason:'approval missing'};if(a.status==='used')return {valid:false,reason:'approval already used'};if(a.status==='rejected')return {valid:false,reason:'approval rejected'};if(Date.parse(a.expiresAt)<=Date.now())return {valid:false,reason:'approval expired'};if(a.planHash!==currentPlanHash)return {valid:false,reason:'approval plan hash mismatch'};return {valid:true,reason:'approval valid'};}
+export function consumeApproval(a:ApprovalRecord,currentPlanHash:string){const check=validateApproval(a,currentPlanHash);if(!check.valid)throw new Error(`Execution blocked: ${check.reason}`);a.status='used';return a;}
+export function rejectApproval(a:ApprovalRecord|undefined){if(a)a.status='rejected';return a;}

@@ -1,0 +1,1 @@
+{"compilerOptions":{"composite":true,"outDir":"dist","rootDir":"../..","strict":true,"target":"ES2022","module":"NodeNext","moduleResolution":"NodeNext","skipLibCheck":true},"include":["src/index.ts","src/planner.ts","../shared/src/index.ts","../approval/src/index.ts"]}

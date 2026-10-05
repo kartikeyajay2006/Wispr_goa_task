@@ -1,0 +1,3 @@
+import {describe,it,expect} from 'vitest';import {InMemoryRuntimeStore} from './runtime-store.js';
+const workflow:any={requestId:'00000000-0000-4000-8000-000000000006',customerId:'CUST-1042',dryRun:false,stage:'intake',status:'awaiting_approval',plan:{hash:'a'.repeat(64),status:'pending_approval',createdAt:'now'},assets:[],events:[]};
+describe('persistence status',()=>{it('starts pending and settles persisted for demo repository',async()=>{const store=new InMemoryRuntimeStore();store.set(workflow.requestId,{...workflow,events:[]});expect(store.persistenceStatus(workflow.requestId).status).toBe('pending');await new Promise(resolve=>setTimeout(resolve,0));expect(store.persistenceStatus(workflow.requestId).status).toBe('persisted')})});

@@ -1,0 +1,2 @@
+import {describe,it,expect} from 'vitest';import {workflowResponseSchema} from './index';
+describe('workflow response contract',()=>{it('rejects missing dryRun state',()=>expect(workflowResponseSchema.safeParse({requestId:'not-a-uuid'}).success).toBe(false));it('requires canonical plan hash length',()=>expect(workflowResponseSchema.safeParse({requestId:'00000000-0000-0000-0000-000000000000',customerId:'CUST-1042',dryRun:false,stage:'approval',status:'awaiting_approval',plan:{hash:'short',status:'pending_approval'},assets:[],events:[]}).success).toBe(false))});

@@ -1,0 +1,16 @@
+{
+  "name": "EraseOps Orchestrator",
+  "mode": "local-demo",
+  "modelContext": "metadata-only",
+  "mcpServer": "apps/mcp-server",
+  "toolPolicy": {
+    "safe": ["discover_customer_postgres", "discover_customer_s3", "inspect_database_schema", "inspect_foreign_keys", "inspect_object_metadata", "count_customer_records", "preview_deletion", "calculate_dependencies", "rescan_customer", "generate_report_data"],
+    "reversible": ["create_customer_backup", "export_customer_snapshot", "create_verification_snapshot"],
+    "destructive": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"]
+  },
+  "sandbox": {"requiredBeforeApproval": true, "network": "disabled", "writes": "fixture-only"},
+  "humanCheckpoint": {"requiredBefore": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"]},
+  "subagents": ["discovery", "dependency", "privacy-planner", "safety", "verification", "execution-coordinator", "audit"],
+  "authority": "deterministic-policy-engine",
+  "instruction": "Never execute destructive operations directly. Return metadata, classifications, dependency summaries, plan proposals, verification results, and audit explanations. The application policy engine is authoritative even if an agent or checkpoint says otherwise."
+}

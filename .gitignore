@@ -1,0 +1,14 @@
+node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/src/**/*.js
+**/src/**/*.d.ts
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store
+*.log
+*.tmp

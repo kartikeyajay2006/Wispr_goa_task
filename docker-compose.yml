@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eraserops
+      POSTGRES_PASSWORD: eraserops_local_only
+      POSTGRES_DB: eraserops
+    ports: ['5432:5432']
+    volumes:
+      - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: eraserops
+      MINIO_ROOT_PASSWORD: eraserops_local_only
+    ports: ['9000:9000','9001:9001']
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: /bin/sh
+    command: >-
+      -c "until mc alias set local http://minio:9000 eraserops eraserops_local_only; do sleep 1; done;
+      mc mb --ignore-existing local/customer-uploads;
+      mc mb --ignore-existing local/support-attachments;
+      mc mb --ignore-existing local/exports;
+      mc mb --ignore-existing local/eraseops-backups;
+      printf 'fake profile image for CUST-1042' | mc pipe local/customer-uploads/CUST-1042/profile.txt;
+      printf 'fake support attachment for CUST-1042' | mc pipe local/support-attachments/CUST-1042/ticket-819.txt;
+      printf '{\"customerId\":\"CUST-1042\",\"demo\":true}' | mc pipe local/exports/CUST-1042-export.json;
+      printf 'fake backup manifest for CUST-1042' | mc pipe local/eraseops-backups/CUST-1042/manifest.json;
+      printf 'fake identity document for CUST-1042' | mc pipe local/customer-uploads/CUST-1042/id-document.txt"
