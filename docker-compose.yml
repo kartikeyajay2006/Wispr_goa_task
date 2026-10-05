@@ -1,3 +1,5 @@
+# Local infrastructure for CONNECTOR_MODE=local.
+#   docker compose up -d && npm run seed:local
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,25 +10,16 @@ services:
     ports: ['5432:5432']
     volumes:
       - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U eraseops -d eraseops']
+      interval: 2s
+      retries: 30
   minio:
-    image: minio/minio:latest
-    command: server /data --console-address ':9001'
+    # MinIO no longer publishes images to Docker Hub or Quay; the Bitnami build is still public
+    # and creates the allowlisted buckets on start.
+    image: bitnamilegacy/minio:latest
     environment:
       MINIO_ROOT_USER: eraseops
       MINIO_ROOT_PASSWORD: eraseops_local_only
-    ports: ['9000:9000','9001:9001']
-  minio-init:
-    image: minio/mc:latest
-    depends_on: [minio]
-    entrypoint: /bin/sh
-    command: >-
-      -c "until mc alias set local http://minio:9000 eraseops eraseops_local_only; do sleep 1; done;
-      mc mb --ignore-existing local/customer-uploads;
-      mc mb --ignore-existing local/support-attachments;
-      mc mb --ignore-existing local/exports;
-      mc mb --ignore-existing local/eraseops-backups;
-      printf 'fake profile image for CUST-1042' | mc pipe local/customer-uploads/CUST-1042/profile.txt;
-      printf 'fake support attachment for CUST-1042' | mc pipe local/support-attachments/CUST-1042/ticket-819.txt;
-      printf '{\"customerId\":\"CUST-1042\",\"demo\":true}' | mc pipe local/exports/CUST-1042-export.json;
-      printf 'fake backup manifest for CUST-1042' | mc pipe local/eraseops-backups/CUST-1042/manifest.json;
-      printf 'fake identity document for CUST-1042' | mc pipe local/customer-uploads/CUST-1042/id-document.txt"
+      MINIO_DEFAULT_BUCKETS: customer-uploads,support-attachments,exports,eraseops-backups
+    ports: ['9000:9000', '9001:9001']

@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import {Pool} from 'pg';
-import {createMockConnectors, seededDataset, type Connector} from '../../../packages/connectors/src/index.js';
+import {createMockConnectors, loadDatasetFixture, seededDataset, type Connector} from '../../../packages/connectors/src/index.js';
+import {seedLocalSystems} from '../../../packages/connectors/src/local-seed.js';
 import {MinioAdapter, PostgresAdapter} from '../../../packages/connectors/src/adapters.js';
 import {MinioHttpObjectClient} from '../../../packages/connectors/src/s3-client.js';
 import {MinioLiveConnector, PostgresLiveConnector} from '../../../packages/connectors/src/live.js';
@@ -25,7 +26,8 @@ app.use(express.json({limit: '100kb'}));
 const store = new InMemoryRuntimeStore(createMetadataRepository(runtimeConfig));
 const localObjectClient = runtimeConfig.connectorMode === 'local' ? new MinioHttpObjectClient(runtimeConfig.minio) : undefined;
 const mock = runtimeConfig.connectorMode === 'mock' ? createMockConnectors(seededDataset(runtimeConfig.datasetFile)) : undefined;
-const postgres: Connector = mock?.postgres ?? new PostgresLiveConnector(new PostgresAdapter(new Pool({connectionString: runtimeConfig.databaseUrl}), localObjectClient));
+const pool = runtimeConfig.connectorMode === 'local' ? new Pool({connectionString: runtimeConfig.databaseUrl}) : undefined;
+const postgres: Connector = mock?.postgres ?? new PostgresLiveConnector(new PostgresAdapter(pool!, localObjectClient));
 const minio: Connector = mock?.minio ?? new MinioLiveConnector(new MinioAdapter(localObjectClient!, runtimeConfig.allowlistedBuckets), runtimeConfig.allowlistedBuckets);
 const guard = new DestructiveRequestGuard(runtimeConfig.rateLimit.maxAttempts, runtimeConfig.rateLimit.windowMs);
 const ctx = {demoMode: true as const, allowlistedHosts: runtimeConfig.allowlistedHosts, allowlistedBuckets: runtimeConfig.allowlistedBuckets};
@@ -72,7 +74,12 @@ app.get('/api/requests/:id/sandbox', route(req => { const workflow = workflows.g
 app.get('/api/requests/:id/backup', route(req => { const workflow = workflows.get(id(req)); const manifest = workflow.backup as BackupManifest | undefined; if (!manifest) throw new HttpError(404, 'No backup was taken for this request'); return {manifest, verification: verifyBackupManifest(manifest, {requestId: workflow.requestId, customerId: workflow.customerId, planHash: workflow.plan.hash}), checks: workflow.backupChecks ?? [], failures: workflow.backupFailures ?? []}; }));
 app.get('/api/requests/:id/verification', route(async req => { const workflow = workflows.get(id(req)); const results = await Promise.all([postgres.verify(workflow.customerId), minio.verify(workflow.customerId)]); return {requestId: workflow.requestId, customerId: workflow.customerId, checkedAt: new Date().toISOString(), verified: results.every(result => result.verified && result.remainingMatches === 0), results, remainingMatches: results.reduce((total, result) => total + result.remainingMatches, 0)}; }));
 
-const resetDemo = route(async () => { await store.clear(); mock?.dataset.reset(); return {ok: true, reset: true, dataset: mock ? 'fixture restored' : 'external systems unchanged'}; });
+const resetDemo = route(async () => {
+  await store.clear();
+  if (mock) { mock.dataset.reset(); return {ok: true, reset: true, dataset: 'In-memory dataset restored from the fixture'}; }
+  const seeded = await seedLocalSystems(pool!, localObjectClient!, loadDatasetFixture(runtimeConfig.datasetFile));
+  return {ok: true, reset: true, dataset: `Reseeded ${seeded.rows} PostgreSQL rows and ${seeded.objects} MinIO objects`};
+});
 app.post('/api/demo/reset', resetDemo);
 app.post('/api/reset', resetDemo);
 app.use('/api', (_req, res) => res.status(404).json({error: 'Unknown API route'}));

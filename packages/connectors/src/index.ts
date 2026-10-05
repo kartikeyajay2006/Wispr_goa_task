@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import type {Asset, DataSystem, DeletionAction, Dependency, ExecutionResult, SimulationReport, VerificationResult} from '../../../packages/shared/src/index.js';
 import {ruleFor} from '../../../packages/policy-engine/src/retention-policy.js';
 import {DemoDataset, isRedacted, seededDataset, type Row} from './dataset.js';
+import {maskEmail, maskName} from './masking.js';
 import {BACKUP_BUCKET, POSTGRES_SCHEMA, SOURCE_BUCKETS, tableSchema} from './schema.js';
 
 export {DemoDataset, seededDataset, loadDatasetFixture, DEFAULT_DATASET_FILE} from './dataset.js';
@@ -34,8 +35,6 @@ export const assertCustomerId = (customerId: string) => { if (!/^CUST-\d{4}$/.te
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 const now = () => new Date().toISOString();
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-const maskName = (name: unknown) => typeof name === 'string' && !isRedacted(name) ? name.split(/\s+/).map((part, index) => index === 0 ? part : `${part[0]}.`).join(' ') : undefined;
-const maskEmail = (email: unknown) => typeof email === 'string' && !isRedacted(email) && email.includes('@') ? `${email[0]}${'•'.repeat(4)}@${email.split('@')[1]}` : undefined;
 
 function assertExecutable(action: DeletionAction, planHash: string, ctx: ConnectorExecutionContext) {
   if (!ctx.approved) throw new Error('Human approval required');

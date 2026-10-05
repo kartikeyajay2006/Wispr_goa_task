@@ -6,8 +6,10 @@
     "dev:api": "ERASEROPS_START_SERVER=true tsx apps/api/src/server.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
     "dev:mcp": "ERASEROPS_MCP_STDIO=true tsx apps/mcp-server/src/stdio.ts",
+    "seed:local": "tsx scripts/seed-local.ts",
     "build": "tsc -b && vite build --config apps/web/vite.config.ts",
     "test": "vitest run",
+    "test:integration": "ERASEOPS_INTEGRATION=1 vitest run packages/connectors/src/local.integration.test.ts",
     "typecheck": "tsc -b"
   },
   "devDependencies": {
