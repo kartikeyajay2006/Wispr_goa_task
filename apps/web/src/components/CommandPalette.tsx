@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import {ArrowRight, Command, Loader2, Mic, MicOff, Search} from 'lucide-react';
+import {ArrowRight, Command, Loader2, Mic, MicOff, Search, Sparkles} from 'lucide-react';
 import {api} from '../api';
-import {parseCommand, type CommandIntent} from '../command-parser';
+import {describeIntent, parseCommand, type CommandIntent} from '../command-parser';
 import {toast} from './ui';
 
 type SpeechResult = {transcript: string; isFinal: boolean};
@@ -95,8 +95,11 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
     const fromCustomers = (customers.data ?? []).flatMap(customer => customer.latestRequest
       ? [`open the plan for ${customer.customerId}`]
       : [`erase ${customer.customerId}${customer.displayName ? ` (${customer.displayName})` : ''}`]);
-    return [...fromCustomers, ...EXAMPLES].filter(item => !lower || item.toLowerCase().includes(lower)).slice(0, 8);
+    return [...fromCustomers, ...EXAMPLES].filter(item => !lower || item.toLowerCase().includes(lower)).slice(0, 7);
   }, [customers.data, text]);
+  const understood = text.trim() ? describeIntent(parseCommand(text)) : undefined;
+  // Row 0 is the live reading of what was typed or dictated; suggestions follow.
+  const rows = understood ? [{label: understood, command: text, intent: true}, ...suggestions.map(item => ({label: item, command: item, intent: false}))] : suggestions.map(item => ({label: item, command: item, intent: false}));
 
   if (!open) return null;
   const submit = (value: string) => { const command = value.replace(/\s*\(.*\)$/, ''); setText(command); void run(command); };
@@ -108,9 +111,9 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
         <input ref={inputRef} value={text} placeholder={speechSupported ? 'Type or say a command…' : 'Type a command…'} aria-label="Command" onChange={event => { setText(event.target.value); setActive(0); }}
           onKeyDown={event => {
             if (event.key === 'Escape') onClose();
-            else if (event.key === 'ArrowDown') { event.preventDefault(); setActive(index => Math.min(index + 1, suggestions.length - 1)); }
+            else if (event.key === 'ArrowDown') { event.preventDefault(); setActive(index => Math.min(index + 1, rows.length - 1)); }
             else if (event.key === 'ArrowUp') { event.preventDefault(); setActive(index => Math.max(index - 1, 0)); }
-            else if (event.key === 'Enter') { event.preventDefault(); submit(text.trim() && !suggestions[active]?.toLowerCase().includes(text.toLowerCase()) ? text : suggestions[active] ?? text); }
+            else if (event.key === 'Enter') { event.preventDefault(); submit(rows[active]?.command ?? text); }
           }} />
         {speechSupported
           ? <button type="button" className={`btn icon-btn mic ${listening ? 'listening' : ''}`} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Dictate a command'} onClick={listen}>{listening ? <MicOff size={16} /> : <Mic size={16} />}</button>
@@ -118,7 +121,8 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
       </div>
       {heard && <div className="heard" aria-live="polite">Heard: “{heard}”</div>}
       <ul className="palette-list" role="listbox" aria-label="Suggestions">
-        {suggestions.map((suggestion, index) => <li key={suggestion}><button type="button" role="option" aria-selected={index === active} data-active={index === active} onMouseEnter={() => setActive(index)} onClick={() => submit(suggestion)}><Command size={14} /><span>{suggestion}</span><ArrowRight size={14} /></button></li>)}
+        {rows.map((row, index) => <li key={`${row.intent}-${row.label}`}><button type="button" role="option" aria-selected={index === active} data-active={index === active} className={row.intent ? 'intent' : undefined} onMouseEnter={() => setActive(index)} onClick={() => submit(row.command)}>{row.intent ? <Sparkles size={14} /> : <Command size={14} />}<span>{row.label}</span><ArrowRight size={14} /></button></li>)}
+        {text.trim() && !understood && <li className="small muted" style={{padding: '0.5rem 0.75rem'}}>Not sure what that means yet. Try one of the suggestions.</li>}
       </ul>
       <div className="palette-foot"><span><span className="kbd">Enter</span> run</span><span><span className="kbd">↑ ↓</span> choose</span><span><span className="kbd">Esc</span> close</span><span>Deletions only run from the guarded Execute button.</span></div>
     </div>

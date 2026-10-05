@@ -8,10 +8,10 @@ export type CommandIntent =
   | {kind: 'reset'}
   | {kind: 'blocked'};
 
-/** Accepts typed IDs ("cust-1042") and dictated ones ("customer 1042", "cust 1042"). */
+/** Accepts typed IDs ("cust-1042") and dictated ones ("customer 1042", "customer 10 42"). */
 export const extractCustomerId = (text: string) => {
-  const match = text.match(/\bcust(?:omer)?[\s-]*(?:id[\s-]*)?(\d{4})\b/i);
-  return match ? `CUST-${match[1]}` : undefined;
+  const match = text.match(/\bcust(?:omer)?[\s-]*(?:id[\s-]*)?(\d(?:\s?\d){3})(?!\s?\d)/i);
+  return match ? `CUST-${match[1].replace(/\s/g, '')}` : undefined;
 };
 
 const queries: Array<[RegExp, CommandQuery]> = [
@@ -43,4 +43,19 @@ export function parseCommand(input: string): CommandIntent {
   const page = pages.find(name => text.toLowerCase() === name);
   if (page) return {kind: 'navigate', page};
   return {kind: 'query'};
+}
+
+const QUERY_LABEL: Record<CommandQuery, string> = {'metrics': 'the timeline', 'report': 'the report', 'blast-radius': 'the plan and blast radius', 'backup': 'the backup', 'verification': 'a live rescan', 'plan': 'the plan', 'footprint': 'the footprint', 'dependencies': 'the dependency graph', 'sandbox': 'the sandbox report', 'audit': 'the audit trail'};
+/** Plain-language reading of a command, shown before it runs so dictation mistakes are visible. */
+export function describeIntent(intent: CommandIntent): string | undefined {
+  switch (intent.kind) {
+    case 'request': return `${intent.dryRun ? 'Open a dry run' : 'Open an erasure request'} for ${intent.customerId}`;
+    case 'approve': return `Review and approve the plan${intent.customerId ? ` for ${intent.customerId}` : ''}`;
+    case 'reject': return `Reject the plan${intent.customerId ? ` for ${intent.customerId}` : ''}`;
+    case 'rollback': return `Roll back from backup${intent.customerId ? ` for ${intent.customerId}` : ''}`;
+    case 'navigate': return `Go to ${intent.page === 'audit' ? 'the audit log' : intent.page}`;
+    case 'reset': return 'Reset the demo data';
+    case 'blocked': return 'Not allowed: deletions only run from the guarded Execute button';
+    case 'query': return intent.query ? `Show ${QUERY_LABEL[intent.query]}${intent.customerId ? ` for ${intent.customerId}` : ''}` : undefined;
+  }
 }

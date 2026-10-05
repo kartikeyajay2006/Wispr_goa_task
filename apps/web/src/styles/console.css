@@ -49,6 +49,7 @@ a.kpi:hover { background: var(--ink-3); }
 
 .stages { display: grid; grid-template-columns: repeat(14, minmax(54px, 1fr)); gap: 4px; overflow-x: auto; padding-bottom: 4px; }
 .stage { display: grid; gap: 0.35rem; font-size: 0.7rem; color: var(--muted); min-width: 54px; }
+.stage span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage i { height: 4px; border-radius: 999px; background: var(--line); }
 .stage.done i { background: var(--uv); }
 .stage.done { color: var(--paper-dim); }
@@ -144,6 +145,8 @@ a.kpi:hover { background: var(--ink-3); }
 .palette-list button:hover, .palette-list button[data-active='true'] { background: var(--ink-3); color: var(--paper); }
 .palette-list button span { flex: 1; }
 .palette-foot { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; padding: 0.6rem 1rem; border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
+.palette-list button.intent { color: var(--paper); }
+.palette-list button.intent svg:first-child { color: var(--uv-strong); }
 .heard { padding: 0.5rem 1rem; font-size: var(--step--1); color: var(--uv-strong); border-bottom: 1px solid var(--line); }
 
 .dot-ok { color: var(--ok); } .dot-warn { color: var(--redact); } .dot-bad { color: var(--delete); } .dot-uv { color: var(--uv); }
