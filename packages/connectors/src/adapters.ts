@@ -52,7 +52,7 @@ export class PostgresAdapter {
       const childOwner = ownerColumnSql(child.name, 'c');
       if (!childOwner) continue;
       const result = await db.query<{owner: string; references: number}>(`SELECT ${childOwner} AS owner, count(*)::integer AS references FROM ${child.name} c WHERE c.${fk.column} IN (${ownedRowsSql(fk.references, 't.id')}) AND ${childOwner} IS DISTINCT FROM $1 GROUP BY ${childOwner}`, [customerId]);
-      for (const row of result.rows) dependencies.push({source: `pg:${child.name}:${row.owner}`, target: `pg:${fk.references}:${customerId}`, relationshipType: `${row.references} ${child.name} row${row.references === 1 ? '' : 's'} owned by ${row.owner} reference this customer's ${fk.references}`, constraintType: 'business', required: true, risk: 'high'});
+      for (const row of result.rows) dependencies.push({source: `pg:${child.name}:${row.owner}`, target: `pg:${fk.references}:${customerId}`, relationshipType: `${row.references} ${child.name} row${row.references === 1 ? '' : 's'} owned by ${row.owner} ${row.references === 1 ? 'references' : 'reference'} this customer's ${fk.references}`, constraintType: 'business', required: true, risk: 'high'});
     }
     return dependencies;
   }

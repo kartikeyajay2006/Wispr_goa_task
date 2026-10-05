@@ -26,6 +26,13 @@ export const requestSummary = (workflow: Workflow) => ({
 });
 
 // Callers pass requests in reverse insertion order; the stable sort keeps that order for equal timestamps.
+/** "organizations shared with CUST-9002 and CUST-9003" rather than one line per referencing customer. */
+function sharedSignals(shared: Array<{source: string; target: string}>) {
+  const byTarget = new Map<string, string[]>();
+  for (const dependency of shared) { const table = dependency.target.split(':')[1]; byTarget.set(table, [...(byTarget.get(table) ?? []), dependency.source.split(':').at(-1)!]); }
+  return [...byTarget].map(([table, owners]) => `Owns ${table} that ${owners.length === 1 ? 'another customer depends' : `${owners.length} other customers depend`} on (${owners.join(', ')})`);
+}
+
 const newestFirst = (a: {createdAt: string}, b: {createdAt: string}) => b.createdAt.localeCompare(a.createdAt);
 
 export function listRequests({store}: Deps) { return store.list().reverse().map(requestSummary).sort(newestFirst); }
@@ -43,6 +50,7 @@ export async function listCustomers({postgres, minio, store, context}: Deps) {
     const residual = pgResidual.remainingMatches + objectResidual.remainingMatches;
     const latest = requests.filter(workflow => workflow.customerId === customerId).map(requestSummary).sort(newestFirst)[0];
     const shared = dependencies.filter(dependency => dependency.constraintType === 'business');
+    const retained = assets.filter(asset => asset.classification === 'retain');
     return {
       customerId,
       displayName: profile?.displayName,
@@ -53,8 +61,8 @@ export async function listCustomers({postgres, minio, store, context}: Deps) {
       residual,
       status: residual === 0 ? 'erased' as const : 'active' as const,
       signals: [
-        ...shared.map(dependency => dependency.relationshipType),
-        ...assets.some(asset => asset.classification === 'retain') ? [`${assets.filter(asset => asset.classification === 'retain').length} resources held under retention policy`] : [],
+        ...sharedSignals(shared),
+        ...retained.length ? [`${retained.length} ${retained.length === 1 ? 'resource' : 'resources'} held under retention policy`] : [],
       ],
       latestRequest: latest && {requestId: latest.requestId, state: latest.state, status: latest.status, createdAt: latest.createdAt},
     };

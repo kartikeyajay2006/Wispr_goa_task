@@ -117,7 +117,7 @@ export class MockPostgresConnector implements Connector {
         for (const [owner, rows] of byOwner) {
           dependencies.push(owner === customerId
             ? {source: `pg:${schema.name}:${customerId}`, target: `pg:${fk.references}:${customerId}`, relationshipType: `${schema.name}.${fk.column} references ${fk.references}`, constraintType: 'foreign_key', required: true, risk: ruleFor('PostgreSQL', schema.name).risk}
-            : {source: `pg:${schema.name}:${owner}`, target: `pg:${fk.references}:${customerId}`, relationshipType: `${plural(rows.length, `${schema.name} row`)} owned by ${owner} reference this customer's ${fk.references}`, constraintType: 'business', required: true, risk: 'high'});
+            : {source: `pg:${schema.name}:${owner}`, target: `pg:${fk.references}:${customerId}`, relationshipType: `${plural(rows.length, `${schema.name} row`)} owned by ${owner} ${rows.length === 1 ? 'references' : 'reference'} this customer's ${fk.references}`, constraintType: 'business', required: true, risk: 'high'});
         }
       }
       const rule = ruleFor('PostgreSQL', schema.name);

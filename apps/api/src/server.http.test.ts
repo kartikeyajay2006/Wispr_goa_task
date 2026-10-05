@@ -106,7 +106,7 @@ describe('HTTP read models', () => {
     const mira = body.find((customer: any) => customer.customerId === 'CUST-1042');
     expect(mira).toMatchObject({displayName: 'Mira K.', status: 'active', residual: 12, footprint: {records: 16, resources: 14, systems: ['PostgreSQL', 'MinIO']}});
     expect(mira.email).toMatch(/^m•+@example\.invalid$/);
-    expect(body.find((customer: any) => customer.customerId === 'CUST-9001').signals[0]).toContain('owned by CUST-9002');
+    expect(body.find((customer: any) => customer.customerId === 'CUST-9001').signals[0]).toBe('Owns organizations that 2 other customers depend on (CUST-9002, CUST-9003)');
   });
 
   it('marks a customer erased once execution succeeds and hides the redacted name', async () => {
