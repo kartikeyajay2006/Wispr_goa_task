@@ -2,7 +2,7 @@ import '../styles/landing.css';
 import {useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
-import {ArrowRight, Database, FileCheck2, Fingerprint, HardDrive, LockKeyhole, Menu, RefreshCw, ScanLine, ShieldCheck, Stamp, Terminal, X} from 'lucide-react';
+import {ArrowRight, Bot, Database, FileCheck2, Fingerprint, HardDrive, LockKeyhole, Menu, RefreshCw, ScanLine, ShieldCheck, Stamp, Terminal, X} from 'lucide-react';
 import {api} from '../api';
 import {RecordSphere} from '../components/RecordSphere';
 import {ActionChip, ErrorNotice, FootprintBar, Legend, Logo, StatePill, plural} from '../components/ui';
@@ -25,6 +25,9 @@ export default function Landing() {
   const policies = useQuery({queryKey: ['policies'], queryFn: api.policies});
   const totals = (customers.data ?? []).reduce((sum, customer) => ({delete: sum.delete + customer.footprint.deletable, redact: sum.redact + customer.footprint.anonymize, retain: sum.retain + customer.footprint.retained}), {delete: 0, redact: 0, retain: 0});
   const offline = overview.isError || customers.isError;
+  // The hero's example request names a real, not-yet-erased customer from the live systems.
+  const demoName = customers.data?.find(customer => customer.status === 'active' && customer.displayName && !customer.signals.some(signal => /depend/.test(signal)))?.displayName?.split(' ')[0];
+  const demoGoal = demoName ? `Can you wipe ${demoName}'s data?` : undefined;
   const close = () => setMenuOpen(false);
 
   return <div className="landing">
@@ -46,9 +49,9 @@ export default function Landing() {
       <section className="l-hero">
         <div className="l-hero-copy">
           <h1>Delete a customer from every system, and prove it.</h1>
-          <p className="l-lede">EraseOps finds a person's records across PostgreSQL and object storage, rehearses the deletion on a copy, backs everything up, waits for a human to approve the exact plan, then rescans until nothing personal is left.</p>
+          <p className="l-lede">Ask in plain words, or out loud. EraseOps agents find a person's records across PostgreSQL and object storage, rehearse the deletion on a copy, back everything up, and stop for a human to approve the exact plan. Then they rescan until nothing personal is left.</p>
           <div className="row l-ctas">
-            <Link className="btn btn-primary btn-lg" to="/console/requests/new?customer=CUST-1042">Erase CUST-1042 in the demo <ArrowRight size={17} /></Link>
+            <Link className="btn btn-primary btn-lg" to={demoGoal ? `/console/agent?goal=${encodeURIComponent(demoGoal)}&start=1` : '/console/agent'}><Bot size={17} />{demoGoal ? `Ask the agent: “${demoGoal}”` : 'Ask the agent'}</Link>
             <Link className="btn btn-lg" to="/console">Open the console</Link>
           </div>
           {offline ? <div className="notice warn l-offline"><RefreshCw size={16} /><span>The API is not answering, so live numbers are hidden. Start everything with <code>npm run dev</code> and this page fills in on its own.</span></div>

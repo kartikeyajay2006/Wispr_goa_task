@@ -52,7 +52,6 @@ export default function AgentPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<unknown>();
   const abort = useRef<AbortController | null>(null);
-  const autostarted = useRef(false);
   const feedEnd = useRef<HTMLDivElement>(null);
 
   const push = useCallback((event: AgentEvent) => setEvents(current => [...current, event]), []);
@@ -68,9 +67,12 @@ export default function AgentPage() {
   }, [running, push, finish]);
 
   useEffect(() => () => abort.current?.abort(), []);
+  // Deferred so React's StrictMode mount/unmount/mount cancels the first attempt instead of aborting a live stream.
   useEffect(() => {
     const initial = params.get('goal');
-    if (initial && params.get('start') === '1' && !autostarted.current) { autostarted.current = true; setParams({}, {replace: true}); void start(initial); }
+    if (!initial || params.get('start') !== '1') return;
+    const timer = setTimeout(() => { setParams({}, {replace: true}); void start(initial); }, 0);
+    return () => clearTimeout(timer);
   }, [params, setParams, start]);
   useEffect(() => { feedEnd.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }, [events.length]);
 

@@ -14,10 +14,18 @@ def _node(status: WorkflowStatus):
     return transition
 
 
+MAX_PLAN_ATTEMPTS = 2
+
+
+def _plan_generation(state: WorkflowState) -> dict[str, object]:
+    return {"current_status": WorkflowStatus.PLAN_GENERATION, "plan_attempts": state.get("plan_attempts", 0) + 1}
+
+
 def _sandbox_route(state: WorkflowState) -> Literal["plan_generation", "risk_check", "failed"]:
     result = state.get("sandbox_results") or {}
     if result.get("status") == "failed":
-        return "plan_generation"
+        # Regenerate the plan once; a plan that keeps failing the sandbox ends the run instead of looping.
+        return "plan_generation" if state.get("plan_attempts", 0) < MAX_PLAN_ATTEMPTS else "failed"
     if state.get("errors"):
         return "failed"
     return "risk_check"
@@ -34,12 +42,14 @@ def _approval_route(state: WorkflowState) -> Literal["failed", "revalidation"]:
     return "failed" if approval.get("status") == "rejected" else "revalidation"
 
 
-def _revalidation_route(state: WorkflowState) -> Literal["sandbox_verification", "execution", "failed"]:
+def _revalidation_route(state: WorkflowState) -> Literal["execution", "failed"]:
+    # A changed plan or new errors after approval invalidate the approval: the run fails and a new
+    # request must be approved, rather than silently re-entering the sandbox with a stale approval.
     if state.get("errors"):
-        return "sandbox_verification"
+        return "failed"
     approval = state.get("approval") or {}
     if approval.get("plan_hash_matches") is False:
-        return "sandbox_verification"
+        return "failed"
     if approval.get("valid") is False:
         return "failed"
     return "execution"
@@ -60,7 +70,7 @@ def build_workflow_graph():
     graph.add_node("discovery", _node(WorkflowStatus.DISCOVERY))
     graph.add_node("dependency_analysis", _node(WorkflowStatus.DEPENDENCY_ANALYSIS))
     graph.add_node("policy_analysis", _node(WorkflowStatus.POLICY_ANALYSIS))
-    graph.add_node("plan_generation", _node(WorkflowStatus.PLAN_GENERATION))
+    graph.add_node("plan_generation", _plan_generation)
     graph.add_node("sandbox_verification", _node(WorkflowStatus.SANDBOX_VERIFICATION))
     graph.add_node("risk_check", _node(WorkflowStatus.RISK_CHECK))
     graph.add_node("backup_preparation", _node(WorkflowStatus.BACKUP_PREPARATION))

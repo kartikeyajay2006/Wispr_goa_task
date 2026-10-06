@@ -10,7 +10,7 @@ import {useSpeech} from './speech';
 export {speechSupported} from './speech';
 
 const TAB_FOR_QUERY: Record<string, string> = {'metrics': 'overview', 'report': 'report', 'blast-radius': 'plan', 'backup': 'backup', 'verification': 'verification', 'plan': 'plan', 'footprint': 'footprint', 'dependencies': 'dependencies', 'sandbox': 'sandbox', 'audit': 'audit'};
-const EXAMPLES = ['go to approvals', 'show the dependency graph', 'verify deletion', 'open the report', 'dry run customer 3175', 'roll back', 'reset the demo data'];
+const EXAMPLES = ['go to approvals', 'show the dependency graph', 'verify deletion', 'open the report', 'roll back', 'reset the demo data'];
 type Action = CommandIntent | {kind: 'investigate'; customerId?: string} | {kind: 'unknown'} | {kind: 'agent'};
 type Row = {label: string; source: 'local' | 'claude' | 'rules' | 'agent' | 'suggestion'; action: () => Action; command: string};
 
@@ -111,7 +111,10 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
     const fromCustomers = (customers.data ?? []).flatMap(customer => customer.latestRequest
       ? [`open the plan for ${customer.customerId}`]
       : [`erase ${customer.customerId}${customer.displayName ? ` (${customer.displayName})` : ''}`]);
-    for (const suggestion of [...fromCustomers, ...EXAMPLES].filter(item => !lower || item.toLowerCase().includes(lower)).slice(0, 6)) {
+    // A dry-run example for whichever active customer has the largest footprint right now.
+    const largest = [...customers.data ?? []].filter(customer => customer.status === 'active').sort((a, b) => b.footprint.records - a.footprint.records)[0];
+    const dryRun = largest ? [`dry run for customer ${largest.customerId.slice(5)}`] : [];
+    for (const suggestion of [...dryRun, ...(lower ? fromCustomers : fromCustomers.slice(0, 3)), ...EXAMPLES].filter(item => !lower || item.toLowerCase().includes(lower)).slice(0, 7)) {
       const command = suggestion.replace(/\s*\(.*\)$/, '');
       out.push({label: suggestion, source: 'suggestion', action: () => parseCommand(command), command});
     }
