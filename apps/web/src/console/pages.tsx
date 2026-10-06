@@ -3,7 +3,7 @@ import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ArrowRight, Bot, CheckCircle2, Database, HardDrive, Inbox, ListChecks, Loader2, Plus, ScrollText, ShieldAlert, ShieldCheck, Users} from 'lucide-react';
 import {api, type RequestSummary} from '../api';
-import {ActionChip, Avatar, Empty, ErrorNotice, FootprintBar, Legend, Ring, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
+import {ActionChip, Avatar, Empty, ErrorNotice, FootprintBar, Legend, Ring, StatePill, formatTime, plural, readable, relativeTime, toast} from '../components/ui';
 import {CountUp, TabInk} from '../components/motion';
 
 function PageHead({title, children, action}: {title: string; children?: React.ReactNode; action?: React.ReactNode}) {
@@ -220,7 +220,7 @@ export function AuditLog() {
           {audit.data?.chains.map(chain => <option key={chain.requestId} value={chain.requestId}>{chain.customerId}, {chain.requestId.slice(0, 8)}</option>)}
         </select>
       </div>
-      {events.length ? <ol className="timeline panel-pad">{events.map(item => <li key={item.id}><span className={`node ${item.actor}`} /><div><strong>{item.message}</strong><small><Link to={`/console/requests/${item.requestId}?tab=audit`} className="id">{item.customerId}</Link> &nbsp;{item.stage.replace('_', ' ')}, {item.actor}, {formatTime(item.at)} &nbsp;<code>#{item.sequence} {item.eventHash.slice(0, 10)}</code></small></div></li>)}</ol>
+      {events.length ? <ol className="timeline panel-pad">{events.map(item => <li key={item.id}><span className={`node ${item.actor}`} /><div><strong>{readable(item.message)}</strong><small><Link to={`/console/requests/${item.requestId}?tab=audit`} className="id">{item.customerId}</Link> &nbsp;{item.stage.replace('_', ' ')}, {item.actor}, {formatTime(item.at)} &nbsp;<code>#{item.sequence} {item.eventHash.slice(0, 10)}</code></small></div></li>)}</ol>
         : <Empty icon={<ScrollText size={28} />} title="No events yet"><p>Every request writes its own hash-linked trail here.</p></Empty>}
     </section>
   </div>;

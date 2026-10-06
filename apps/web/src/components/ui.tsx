@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from 'react';
+import {useEffect, useState, type ReactNode, type RefObject} from 'react';
 import {create} from 'zustand';
 import {AlertTriangle, Check, CircleDot, Copy, Info, X} from 'lucide-react';
 import type {Workflow} from '../api';
@@ -60,6 +60,18 @@ export function Empty({icon, title, children}: {icon: ReactNode; title: string; 
 }
 
 export const formatTime = (iso?: string) => iso ? new Date(iso).toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '';
+/** Audit messages carry exact ISO timestamps; show them in the reader's local time. */
+export const readable = (message: string) => message.replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, iso => formatTime(iso));
+/** Scrolls a horizontal strip (stages, tabs, phone nav) so its active item is visible, without moving the page. */
+export function useActiveInView<T extends HTMLElement>(ref: RefObject<T | null>, selector: string, key: unknown) {
+  useEffect(() => {
+    const strip = ref.current;
+    const item = strip?.querySelector<HTMLElement>(selector);
+    if (!strip || !item || strip.scrollWidth <= strip.clientWidth) return;
+    const offset = item.getBoundingClientRect().left - strip.getBoundingClientRect().left;
+    strip.scrollLeft += offset - (strip.clientWidth - item.offsetWidth) / 2;
+  }, [ref, selector, key]);
+}
 export const relativeTime = (iso?: string) => {
   if (!iso) return '';
   const seconds = Math.round((Date.now() - Date.parse(iso)) / 1000);

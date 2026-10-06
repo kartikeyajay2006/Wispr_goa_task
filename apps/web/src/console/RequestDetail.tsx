@@ -4,7 +4,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {AlertTriangle, ArrowRight, Check, CheckCircle2, Download, FileCheck2, HardDrive, Loader2, LockKeyhole, Printer, RefreshCw, RotateCcw, ScanLine, ShieldAlert, ShieldCheck, X} from 'lucide-react';
 import {api, ApiError, type Stage, type Workflow} from '../api';
 import {useOperator} from '../operator';
-import {ActionChip, Empty, ErrorNotice, FootprintBar, Guilloche, Hash, Legend, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
+import {ActionChip, Empty, ErrorNotice, FootprintBar, Guilloche, Hash, Legend, StatePill, formatTime, plural, readable, relativeTime, toast, useActiveInView} from '../components/ui';
 import {TabInk, atLeast} from '../components/motion';
 import {OperatorField} from '../components/OperatorField';
 
@@ -22,6 +22,7 @@ export default function RequestDetail() {
   const tab = (TABS.some(([key]) => key === params.get('tab')) ? params.get('tab') : 'overview') as Tab;
   const workflow = useQuery({queryKey: ['request', id], queryFn: () => api.request(id), refetchInterval: query => query.state.data?.state === 'APPROVED' ? 5_000 : false});
   const tabsRef = useRef<HTMLDivElement>(null);
+  useActiveInView(tabsRef, '[aria-selected="true"]', `${tab}:${Boolean(workflow.data)}`);
 
   if (workflow.isLoading) return <div className="page"><div className="skeleton" style={{height: 120}} /><div className="skeleton" style={{height: 420}} /></div>;
   if (workflow.error || !workflow.data) return <div className="page"><ErrorNotice error={workflow.error ?? new Error('Request not found')} />{workflow.error instanceof ApiError && workflow.error.status === 404 && <p className="dim">Requests live in memory unless persistence is set to PostgreSQL, so restarting the API or resetting the demo clears them. <Link to="/console/requests/new">Open a new one</Link>.</p>}</div>;
@@ -62,7 +63,9 @@ function StageTrack({workflow}: {workflow: Workflow}) {
   const reached = new Set(workflow.events.map(event => event.stage));
   const current = workflow.stage;
   const failed = workflow.status === 'blocked' && !['REJECTED', 'ROLLED_BACK'].includes(workflow.state ?? '');
-  return <div className="stages" aria-label="Workflow progress" tabIndex={0}>{STAGES.map((stage, index) => {
+  const strip = useRef<HTMLDivElement>(null);
+  useActiveInView(strip, '[aria-current="step"]', current);
+  return <div className="stages" ref={strip} aria-label="Workflow progress" tabIndex={0}>{STAGES.map((stage, index) => {
     const state = stage === current ? (failed ? 'failed' : 'current') : reached.has(stage) ? 'done' : '';
     return <div key={stage} className={`stage ${state}`} style={order(index)} aria-current={stage === current ? 'step' : undefined}><i /><span>{STAGE_LABEL[stage]}</span></div>;
   })}</div>;
@@ -183,7 +186,7 @@ function TimelineTab({workflow}: {workflow: Workflow}) {
       <Stat value={workflow.blastRadius.retained} label="records retained" color="var(--retain)" />
       {workflow.verification && <Stat value={workflow.verification.remainingMatches} label="residual after rescan" color={workflow.verification.remainingMatches ? 'var(--delete)' : 'var(--ok)'} />}
     </div>
-    <ol className="timeline">{workflow.events.map((event, index) => <li key={event.id} style={order(index)}><span className={`node ${event.actor}`} /><div><strong>{event.message}</strong><small>{STAGE_LABEL[event.stage]}, {event.actor}, {formatTime(event.at)}</small></div></li>)}</ol>
+    <ol className="timeline">{workflow.events.map((event, index) => <li key={event.id} style={order(index)}><span className={`node ${event.actor}`} /><div><strong>{readable(event.message)}</strong><small>{STAGE_LABEL[event.stage]}, {event.actor}, {formatTime(event.at)}</small></div></li>)}</ol>
   </div>;
 }
 
@@ -295,6 +298,6 @@ function AuditTab({workflow}: {workflow: Workflow}) {
   const audit = useQuery({queryKey: ['request-audit', workflow.requestId, workflow.events.length], queryFn: () => api.requestAudit(workflow.requestId)});
   return <div className="stack">
     {audit.data && <div className={`notice ${audit.data.chain.valid ? 'ok' : 'error'}`}>{audit.data.chain.valid ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}{audit.data.chain.valid ? `Hash chain verified across ${plural(audit.data.events.length, 'event')}.` : audit.data.chain.reason}</div>}
-    <div className="panel table-wrap" style={{boxShadow: 'none'}} tabIndex={0}><table className="table"><thead><tr><th>#</th><th>Event</th><th>Actor</th><th>Previous</th><th>Hash</th></tr></thead><tbody>{(audit.data?.events ?? workflow.events).map(event => <tr key={event.id}><td className="mono muted">{event.sequence}</td><td><div>{event.message}</div><small className="muted">{STAGE_LABEL[event.stage]}, {formatTime(event.at)}</small></td><td className="dim">{event.actor}</td><td><code className="muted">{event.previousHash === 'GENESIS' ? 'genesis' : event.previousHash.slice(0, 10)}</code></td><td><Hash value={event.eventHash} length={10} /></td></tr>)}</tbody></table></div>
+    <div className="panel table-wrap" style={{boxShadow: 'none'}} tabIndex={0}><table className="table"><thead><tr><th>#</th><th>Event</th><th>Actor</th><th>Previous</th><th>Hash</th></tr></thead><tbody>{(audit.data?.events ?? workflow.events).map(event => <tr key={event.id}><td className="mono muted">{event.sequence}</td><td><div>{readable(event.message)}</div><small className="muted">{STAGE_LABEL[event.stage]}, {formatTime(event.at)}</small></td><td className="dim">{event.actor}</td><td><code className="muted">{event.previousHash === 'GENESIS' ? 'genesis' : event.previousHash.slice(0, 10)}</code></td><td><Hash value={event.eventHash} length={10} /></td></tr>)}</tbody></table></div>
   </div>;
 }

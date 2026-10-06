@@ -14,6 +14,7 @@
 .l-links a:hover { color: var(--text); }
 .l-nav-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
 .l-menu { display: none; }
+.l-nav .cta-short { display: none; }
 
 .l-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; padding: clamp(2.5rem, 7vw, 6rem) var(--gutter) clamp(2rem, 5vw, 4rem); max-width: 1360px; margin: 0 auto; }
 .l-hero h1 { font-size: clamp(2.1rem, 4.7vw, 4.6rem); font-weight: 650; letter-spacing: -0.018em; line-height: 1.02; font-variation-settings: 'opsz' 96; }
@@ -92,6 +93,14 @@
   .l-steps li { padding-bottom: 1.25rem; }
   .l-customer { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
   .l-customer-act { justify-content: space-between; }
+  .l-nav { gap: 0.75rem; }
+  .l-nav-actions { gap: 0.35rem; }
   .l-nav .btn-primary { padding: 0 0.75rem; }
+  .l-nav .cta-long { display: none; }
+  .l-nav .cta-short { display: inline; }
   .l-ctas .btn { width: 100%; }
+}
+@media (max-width: 350px) {
+  /* The smallest phones keep the mark and drop the wordmark so the menu button still fits. */
+  .l-brand .logo > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }

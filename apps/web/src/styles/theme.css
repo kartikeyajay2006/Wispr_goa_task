@@ -236,6 +236,13 @@ code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
 .toast.info svg { color: var(--accent); }
 .toast p { flex: 1; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+/* On phones the action buttons sit low on the screen, so notices drop in from the top and only the latest two show. */
+@media (max-width: 700px) {
+  .toasts { top: calc(env(safe-area-inset-top, 0px) + 10px); bottom: auto; }
+  .toasts .toast:nth-last-child(n+3) { display: none; }
+  .toasts .toast { animation-name: toast-drop; }
+}
+@keyframes toast-drop { from { opacity: 0; transform: translateY(-10px); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }

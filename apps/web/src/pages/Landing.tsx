@@ -46,7 +46,7 @@ export default function Landing() {
       </nav>
       <div className="l-nav-actions">
         <ThemeToggle />
-        <Link className="btn btn-primary" to="/console"><Terminal size={15} />Open console</Link>
+        <Link className="btn btn-primary" to="/console"><Terminal size={15} /><span className="cta-long">Open console</span><span className="cta-short">Console</span></Link>
         <button type="button" className="btn btn-ghost icon-btn l-menu" aria-expanded={menuOpen} aria-label="Toggle navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={18} /> : <Menu size={18} />}</button>
       </div>
     </header>
