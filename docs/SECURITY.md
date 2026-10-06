@@ -26,7 +26,9 @@ The LangGraph agents (`apps/api/src/agent`) sit outside the destructive path:
 - Models receive metadata and masked names only. Customer IDs a model returns are checked against the live customer list.
 - The planner opens requests through the same `WorkflowService` as the console, so the sandbox, backup and policy gates are unchanged.
 - The run pauses with LangGraph `interrupt()`. Resuming requires the `x-operator-identity` header and the typed customer ID; the executor then approves and executes as that person, through the guarded route and its rate limit.
-- Every Claude call opts into server-side refusal fallbacks and checks the stop reason; a refusal or failure falls back to the rule-based twin of that node.
+- Every model call checks the stop reason before its output is used; a refusal or failure falls back to the rule-based twin of that node. Claude calls also opt into server-side refusal fallbacks.
+- OpenAI calls use the Responses API with `store: false`, so responses are not kept as stored conversations; reasoning is passed between tool turns as encrypted content. OpenAI's standard API data retention still applies.
+- The OpenAI key lives in `.env`, which git ignores. The browser never sees it: only the API process reads it.
 
 The MCP server (`apps/mcp-server`) applies the same rules: destructive tools need injected authorization whose plan hash and approval ID match, plus the same rate limiter.
 

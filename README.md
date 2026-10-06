@@ -9,14 +9,14 @@
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169e1?logo=postgresql&logoColor=white">
   <img alt="MinIO" src="https://img.shields.io/badge/MinIO-S3%20SigV4-c72e49?logo=minio&logoColor=white">
   <img alt="LangGraph" src="https://img.shields.io/badge/agents-LangGraph-1c3c3c?logo=langchain&logoColor=white">
-  <img alt="Claude" src="https://img.shields.io/badge/Claude-Opus%205.5-d4a27f">
+  <img alt="OpenAI gpt-5.5" src="https://img.shields.io/badge/OpenAI-gpt--5.5-d9b46a">
   <img alt="Voice commands" src="https://img.shields.io/badge/voice-Web%20Speech%20API-9b7bff">
 </p>
 
 <h3 align="center">Delete a customer from every system, and prove it.</h3>
 
 <p align="center">
-Ask in plain words, or out loud: <i>"can you wipe Mira's data?"</i>. A LangGraph team of Claude-powered agents finds the person's records across PostgreSQL and object storage, rehearses the deletion on an isolated copy, backs everything up and reads it back, then <b>stops for a human</b> to approve <i>one exact plan hash</i>. After execution it rescans until nothing personal is left. Every step lands in a tamper-evident hash chain.
+Ask in plain words, or out loud: <i>"can you wipe Mira's data?"</i>. A LangGraph team of AI agents (OpenAI gpt-5.5) finds the person's records across PostgreSQL and object storage, rehearses the deletion on an isolated copy, backs everything up and reads it back, then <b>stops for a human</b> to approve <i>one exact plan hash</i>. After execution it rescans until nothing personal is left. Every step lands in a tamper-evident hash chain.
 </p>
 
 <p align="center">
@@ -43,7 +43,7 @@ A "right to erasure" request sounds like one `DELETE`. In practice the customer 
 
 EraseOps treats erasure like a production change:
 
-- **Agents do the legwork, people decide.** Claude agents investigate with read-only tools and prepare the plan; they have no tool that can delete anything.
+- **Agents do the legwork, people decide.** The agents investigate with read-only tools and prepare the plan; they have no tool that can delete anything.
 - **Nothing is guessed.** A versioned retention policy decides, per table and bucket, whether data is deleted, redacted, or kept, and records why.
 - **Nothing runs untested.** The plan is applied to an isolated copy first. On PostgreSQL that is a real transaction that is always rolled back, so the database enforces every foreign key itself.
 - **Nothing runs unapproved.** A person types the customer ID to approve one SHA-256 plan hash. The approval expires and works exactly once.
@@ -86,13 +86,13 @@ stateDiagram-v2
 
 ## The agents
 
-The agents are a [LangGraph](https://langchain-ai.github.io/langgraphjs/) state graph inside the API ([`apps/api/src/agent/graph.ts`](apps/api/src/agent/graph.ts)). Claude (`claude-opus-5-5`, via the official Anthropic SDK) drives the nodes that need judgement; the irreversible steps stay deterministic and behind a person.
+The agents are a [LangGraph](https://langchain-ai.github.io/langgraphjs/) state graph inside the API ([`apps/api/src/agent/graph.ts`](apps/api/src/agent/graph.ts)). OpenAI `gpt-5.5`, through the official `openai` SDK and the Responses API, drives the nodes that need judgement; the irreversible steps stay deterministic and behind a person. Claude works too: set `ANTHROPIC_API_KEY` instead and the same graph runs on the Anthropic SDK.
 
 ```mermaid
 flowchart LR
   G([Goal, typed or spoken]) --> I[Intake agent<br/>reads the command]
-  I --> D[Discovery agent<br/>Claude + read-only MCP tools]
-  D --> R[Risk agent<br/>Claude + hard facts]
+  I --> D[Discovery agent<br/>gpt-5.5 + read-only MCP tools]
+  D --> R[Risk agent<br/>model + hard facts]
   R -->|erase or dry run| P[Planner<br/>sandbox + verified backup]
   R -->|question| B1
   P --> B1[Reporter<br/>briefing]
@@ -107,9 +107,9 @@ flowchart LR
 |---|---|
 | **Tools** | The discovery agent calls the EraseOps MCP catalog (`discover_customer_postgres`, `calculate_dependencies`, `rescan_customer`, ...). Destructive MCP tools are never declared to the model, and the MCP boundary refuses them anyway. |
 | **Human in the loop** | `interrupt()` pauses the run with a checkpointed thread. Resuming needs the operator's identity and the typed customer ID; the executor then approves and runs the guarded path as that person. |
-| **Grounded risk** | Deterministic facts (shared rows, retention holds, residual data) are merged with Claude's judgement: the model can raise risk but never drop a known blocker. |
-| **Privacy** | Models see metadata and masked names ("Mira K."), never emails or values. Customer IDs a model invents are discarded. |
-| **No key, no problem** | Without `ANTHROPIC_API_KEY` every node runs a rule-based twin, and the UI says which engine answered. Each Claude call uses server-side refusal fallbacks. |
+| **Grounded risk** | Deterministic facts (shared rows, retention holds, residual data) are merged with the model's judgement: it can raise risk but never drop a known blocker. |
+| **Privacy** | Models see metadata and masked names ("Mira K."), never emails or values. Customer IDs a model invents are discarded. OpenAI calls use `store: false`, so no conversation is kept as a stored response; reasoning travels between tool turns as encrypted content. |
+| **No key, no problem** | Without `OPENAI_API_KEY` every node runs a rule-based twin, and the UI says which engine answered. A refusal, timeout or bad answer from the model falls back to that twin for the node. |
 
 <table>
   <tr>
@@ -191,7 +191,14 @@ npm run dev
 
 Open **http://localhost:5173** for the landing page and **http://localhost:5173/console** for the operator console. The API listens on `http://localhost:3001`.
 
-To let Claude run the agents and read commands, start with a key: `ANTHROPIC_API_KEY=sk-ant-... npm run dev`. Without one, the same agents run on deterministic rules.
+To let OpenAI run the agents and read commands, put your key in a `.env` file at the repo root (git ignores it), then start as usual:
+
+```bash
+echo 'OPENAI_API_KEY=sk-...' > .env
+npm run dev
+```
+
+The Agent page badge then reads **OpenAI · gpt-5.5**. Without a key, the same agents run on deterministic rules.
 
 The default mode keeps the synthetic dataset **in memory**. Deletions are real (discovery after an erasure finds nothing), but nothing leaves your machine. **Reset demo data** in the sidebar restores the fixture.
 
@@ -226,7 +233,7 @@ In local mode the sandbox runs inside a PostgreSQL transaction that is always ro
 | Piece | Where | Role |
 |---|---|---|
 | Operator console | [`apps/web`](apps/web) | React 18, React Query, React Router, React Flow; code-split per route |
-| Agents | [`apps/api/src/agent`](apps/api/src/agent) | LangGraph.js state graph, Claude tool loop over MCP tools, command interpreter, rule-based twins |
+| Agents | [`apps/api/src/agent`](apps/api/src/agent) | LangGraph.js state graph, model tool loop over MCP tools (OpenAI or Claude), command interpreter, rule-based twins |
 | API | [`apps/api`](apps/api) | Express routes over `WorkflowService` (create, approve, reject, execute, rollback), live read models, server-sent events for agent runs |
 | MCP server | [`apps/mcp-server`](apps/mcp-server) | JSON-RPC over stdio; destructive tools need injected authorization bound to the plan hash |
 | Connectors | [`packages/connectors`](packages/connectors) | Mock connectors over a stateful dataset, and real PostgreSQL/MinIO adapters (SigV4 client, no SDK) driven by one schema registry |
@@ -250,7 +257,7 @@ More detail in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Voice and command bar
 
-Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console, or use the microphone on the **Agent** page. Speech comes from the browser's Web Speech API (Chrome, Edge, Safari). Clear commands are read instantly in the browser; loose phrasing such as "can you forget Arjun's data?" goes to the interpreter, where Claude (or the rule-based reader) resolves names and spoken IDs ("customer 10 42") and reads the result back before anything happens.
+Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console, or use the microphone on the **Agent** page. Speech comes from the browser's Web Speech API (Chrome, Edge, Safari). Clear commands are read instantly in the browser; loose phrasing such as "can you forget Arjun's data?" goes to the interpreter, where the model (or the rule-based reader) resolves names and spoken IDs ("customer 10 42") and reads the result back before anything happens.
 
 | Say or type | Result |
 |---|---|
@@ -280,7 +287,7 @@ Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console, or us
 | `POST` | `/api/requests/:id/execute-guarded` | `{approvalId, planHash}` + operator header |
 | `POST` | `/api/requests/:id/rollback` | Restore from the request backup after a failed run |
 | `GET` | `/api/requests/:id/{plan,sandbox,backup,blast-radius,verification,report,metrics,audit,persistence,authoritative}` | Evidence views; `verification` rescans live |
-| `GET` | `/api/assistant/status` | Which engine reads commands and runs agents (Claude model or rules) |
+| `GET` | `/api/assistant/status` | Which engine reads commands and runs agents (the model, or rules) |
 | `POST` | `/api/assistant/interpret` | `{text}` to one structured intent with a read-back sentence |
 | `POST` | `/api/agent/runs` | `{goal}`; streams the LangGraph run as server-sent events until it finishes or reaches the human checkpoint |
 | `POST` | `/api/agent/runs/:id/resume` | `{decision: "approve" \| "reject", confirmation, reason}` + operator header; streams the rest of the run |
@@ -311,16 +318,18 @@ Copy [`.env.example`](.env.example) to `.env`; the API loads it on start, and re
 | `ERASEROPS_PERSISTENCE` | `memory` | `postgres` stores workflows in PostgreSQL |
 | `DATABASE_URL`, `MINIO_*` | match `docker-compose.yml` | Local infrastructure |
 | `CORS_ORIGIN` | `*` | Comma-separated allowed origins |
-| `ANTHROPIC_API_KEY` | unset | Lets Claude run the agents and read commands |
-| `ERASEOPS_AI` | `auto` | `auto` (Claude when a key is set), `claude` (force, e.g. with an `ant auth login` profile), or `off` |
-| `ERASEOPS_MODEL` | `claude-opus-5-5` | Model used by every agent |
+| `OPENAI_API_KEY` | unset | Lets OpenAI run the agents and read commands. Put it in `.env`; `npm run dev` loads that file |
+| `OPENAI_MODEL` | `gpt-5.5` | OpenAI model for every agent. `gpt-5.4-mini` is roughly three times faster for rehearsals |
+| `ANTHROPIC_API_KEY` | unset | Alternative provider: Claude runs the agents when no OpenAI key is set |
+| `ERASEOPS_AI` | `auto` | `auto` (OpenAI, then Claude, then rules, by which key is set), `claude` (force Claude, e.g. with an `ant auth login` profile), or `off` |
+| `ERASEOPS_MODEL` | `claude-opus-5-5` | Model used when Claude runs the agents |
 
 ## Project layout
 
 ```text
 apps/
   api/            Express API: WorkflowService, read models, guarded routes
-    src/agent/    LangGraph agents, Claude client, command interpreter, MCP-backed tools
+    src/agent/    LangGraph agents, OpenAI and Claude clients, command interpreter, MCP-backed tools
   web/            React console and landing page
   mcp-server/     MCP tools over stdio
 packages/
@@ -342,7 +351,7 @@ npm run test:integration          # needs docker compose up -d
 pip install -r backend/requirements.txt && pytest backend
 ```
 
-The agent suite runs the whole LangGraph flow with a scripted model: tool choice, a refused destructive call, the human checkpoint, resume, rejection, and fallback to rules when Claude fails mid-run. The TypeScript suite also covers plan hashing, approval expiry and reuse, the state machine, connector parameterization, data-driven sandbox failures, backup tamper detection, rollback restoring every row and object, cross-customer isolation, rate limiting, audit-chain tamper detection, and full HTTP lifecycles against a listening server. The integration suite repeats erase, verify and restore against real PostgreSQL and MinIO.
+The agent suite runs the whole LangGraph flow with a scripted model: tool choice, a refused destructive call, the human checkpoint, resume, rejection, and fallback to rules when the model fails mid-run. The OpenAI adapter has its own tests, including a full scripted run in the Responses API format. The TypeScript suite also covers plan hashing, approval expiry and reuse, the state machine, connector parameterization, data-driven sandbox failures, backup tamper detection, rollback restoring every row and object, cross-customer isolation, rate limiting, audit-chain tamper detection, and full HTTP lifecycles against a listening server. The integration suite repeats erase, verify and restore against real PostgreSQL and MinIO.
 
 ## How this was built
 

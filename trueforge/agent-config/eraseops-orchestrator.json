@@ -2,7 +2,7 @@
   "name": "EraseOps Orchestrator",
   "mode": "local-demo",
   "runtime": "LangGraph.js state graph in apps/api/src/agent/graph.ts",
-  "model": "claude-opus-5-5 (ERASEOPS_MODEL); rule-based twins when no API key is set",
+  "model": "gpt-5.5 via the OpenAI Responses API (OPENAI_MODEL); claude-opus-5-5 with an Anthropic key (ERASEOPS_MODEL); rule-based twins when no API key is set",
   "modelContext": "metadata-only",
   "mcpServer": "apps/mcp-server",
   "nodes": [
