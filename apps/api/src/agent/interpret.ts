@@ -92,6 +92,8 @@ export function interpretWithRules(text: string, customers: readonly CustomerRef
   if (/\b(dry[\s-]?run|preview|simulate|what (would|will) happen|what if)\b/.test(lower)) return {...base, action: 'dry_run', readback: customerId ? `Open a dry run for ${who}` : `Open a dry run for ${who}: which one?`};
   const tab = TAB_WORDS.find(([pattern]) => pattern.test(lower))?.[1] ?? null;
   if (tab && /\b(show|open|view|see|display)\b/.test(lower)) return {...base, action: 'show', tab, readback: `Show the ${tab} tab${customerId ? ` for ${who}` : ''}`};
+  // "Is it safe to erase X?" asks for judgement; "can you wipe X?" is a polite command.
+  if (matches.length && /\b(is it (safe|ok|okay)|safe to|should we|ok to|okay to|risky|risk of)\b/.test(lower)) return {...base, action: 'investigate', readback: `Investigate whether ${who} can be erased safely, without changing anything`};
   if (/\b(erase|delete|wipe|remove|forget|purge|scrub|forgotten|get rid of)\b/.test(lower)) return {...base, action: 'erase', readback: customerId ? `Open an erasure request for ${who}` : `Open an erasure request for ${who}: which one?`};
   if (matches.length && /\b(what|who|which|how|why|is it|can we|find|look|check|investigate|tell|about|data|safe)\b/.test(lower)) return {...base, action: 'investigate', readback: `Investigate ${who} without changing anything`};
   if (customerId) return {...base, action: 'erase', confidence: 'medium', readback: `Open an erasure request for ${who}`};

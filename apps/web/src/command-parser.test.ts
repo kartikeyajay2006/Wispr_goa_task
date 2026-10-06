@@ -18,3 +18,17 @@ describe('intent descriptions', () => {
     expect(describeIntent(parseCommand('hello'))).toBeUndefined();
   });
 });
+
+describe('server intent mapping', () => {
+  it('maps Claude or rule readings onto console actions', async () => {
+    const {fromServerIntent, isConfident} = await import('./command-parser');
+    const base = {customerId: 'CUST-1042', tab: null, page: null};
+    expect(fromServerIntent({...base, action: 'erase'})).toEqual({kind: 'request', customerId: 'CUST-1042'});
+    expect(fromServerIntent({...base, action: 'dry_run'})).toEqual({kind: 'request', customerId: 'CUST-1042', dryRun: true});
+    expect(fromServerIntent({...base, action: 'investigate'})).toEqual({kind: 'investigate', customerId: 'CUST-1042'});
+    expect(fromServerIntent({...base, action: 'show', tab: 'dependencies'})).toEqual({kind: 'query', query: 'dependencies', customerId: 'CUST-1042'});
+    expect(fromServerIntent({...base, customerId: null, action: 'erase'})).toEqual({kind: 'unknown'});
+    expect(isConfident(parseCommand('erase customer 1042'))).toBe(true);
+    expect(isConfident(parseCommand("wipe Mira's data"))).toBe(false);
+  });
+});

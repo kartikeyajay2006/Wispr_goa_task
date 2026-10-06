@@ -40,6 +40,27 @@ export type AuditLog = {events: AuditEvent[]; total: number; chains: Array<{requ
 export type Verification = {requestId: string; customerId: string; checkedAt: string; verified: boolean; results: VerificationResult[]; remainingMatches: number};
 export type Report = {reportId: string; requestId: string; customerId: string; status: string; state?: string; planHash: string; generatedAt: string; request?: Workflow['request']; approval?: {approvedBy?: string; approvedAt?: string; expiresAt: string; used: boolean}; rejection?: Workflow['rejection']; actions: Array<{id: string; system: string; resource: string; action: string; planned: number; changed: number; status: string}>; sandbox: {failures: string[]; warnings: string[]; checks: number}; backup: {checks: Array<{system: string; verified: boolean; reason: string}>; failures: string[]}; summary: {systems: number; records: number; deleted: number; anonymized: number; retained: number; impact: string}; metrics: {dataAssetsFound: number; systemsScanned: number; deletionActions: number; safetyChecks: number; policyBlocks: number; residualPii: number; totalExecutionTimeMs: number}; controls: {sandbox: string; backup: string; approval: string; auditEvents: number}; verification: {postgres: boolean; minio: boolean; remainingMatches: number}};
 export type Health = {ok: boolean; mode: string; allowlist: string[]};
+export type AssistantStatus = {engine: 'claude'; model: string} | {engine: 'rules'; reason: string};
+export type ServerIntent = {action: 'erase' | 'dry_run' | 'investigate' | 'approve' | 'reject' | 'rollback' | 'show' | 'navigate' | 'reset' | 'blocked' | 'unknown'; customerId: string | null; candidates: string[]; tab: string | null; page: string | null; readback: string; confidence: 'high' | 'medium' | 'low'};
+export type Interpretation = {intent: ServerIntent; engine: 'claude' | 'rules'; model?: string; note?: string};
+
+export type AgentNode = 'understand' | 'investigate' | 'assess' | 'propose' | 'await_approval' | 'execute' | 'reject' | 'brief';
+export type Assessment = {risk: 'low' | 'medium' | 'high'; blockers: string[]; notes: string[]};
+export type Briefing = {headline: string; summary: string; findings: string[]; risks: string[]; nextStep: string};
+export type ApprovalRequest = {requestId: string; customerId: string; planHash: string; deletable: number; anonymized: number; retained: number; systems: number; expiresHint: string};
+export type AgentEvent =
+  | {type: 'run'; threadId: string; goal: string; engine: 'claude' | 'rules'; model?: string; note?: string}
+  | {type: 'node'; node: AgentNode; label: string; status: 'start' | 'end'}
+  | {type: 'reasoning'; node: AgentNode; text: string}
+  | {type: 'tool'; node: AgentNode; id: string; tool: string; input: unknown; status: 'start' | 'end'; ok?: boolean; summary?: string}
+  | {type: 'intent'; intent: ServerIntent; engine: 'claude' | 'rules'}
+  | {type: 'assessment'; assessment: Assessment}
+  | {type: 'request'; requestId: string; customerId: string; state?: string; status: string; dryRun: boolean; blockedBy?: string}
+  | {type: 'approval'; approval: ApprovalRequest}
+  | {type: 'briefing'; briefing: Briefing; engine: 'claude' | 'rules'}
+  | {type: 'error'; message: string}
+  | {type: 'done'; status: 'running' | 'awaiting_approval' | 'completed' | 'failed'; requestId?: string};
+export type AgentRun = {threadId: string; goal: string; operator: string; startedAt: string; updatedAt: string; status: 'running' | 'awaiting_approval' | 'completed' | 'failed'; engine: 'claude' | 'rules'; customerId?: string; requestId?: string; headline?: string};
 
 export class ApiError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 
@@ -55,6 +76,30 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const data = text ? JSON.parse(text) : undefined;
   if (!response.ok) throw new ApiError(response.status, data?.error ?? `Request failed (${response.status})`);
   return data as T;
+}
+
+const operatorHeaders = () => { const operator = useOperator.getState().name.trim(); return {'content-type': 'application/json', ...(operator ? {'x-operator-identity': operator} : {})}; };
+
+/** POSTs and reads a server-sent event stream, calling onEvent for each event as it arrives. */
+async function streamEvents(path: string, body: unknown, onEvent: (event: AgentEvent) => void, signal?: AbortSignal) {
+  let response: Response;
+  try { response = await fetch(path, {method: 'POST', headers: operatorHeaders(), body: JSON.stringify(body), signal}); }
+  catch (error) { if (signal?.aborted) return; throw new ApiError(0, 'The EraseOps API is not reachable. Start it with npm run dev.'); }
+  if (!response.ok || !response.body) { const data = await response.json().catch(() => undefined); throw new ApiError(response.status, data?.error ?? `Request failed (${response.status})`); }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+    let boundary: number;
+    while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+      const chunk = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      if (chunk.startsWith('data: ')) onEvent(JSON.parse(chunk.slice(6)) as AgentEvent);
+    }
+  }
 }
 
 export const api = {
@@ -75,4 +120,9 @@ export const api = {
   execute: (id: string, approvalId: string, planHash: string) => request<Workflow>('POST', `/api/requests/${id}/execute-guarded`, {approvalId, planHash}),
   rollback: (id: string) => request<Workflow>('POST', `/api/requests/${id}/rollback`),
   reset: () => request<{ok: boolean; dataset: string}>('POST', '/api/demo/reset'),
+  assistantStatus: () => request<AssistantStatus>('GET', '/api/assistant/status'),
+  interpret: (text: string, requestId?: string) => request<Interpretation>('POST', '/api/assistant/interpret', {text, requestId}),
+  agentRuns: () => request<AgentRun[]>('GET', '/api/agent/runs'),
+  startAgent: (goal: string, onEvent: (event: AgentEvent) => void, signal?: AbortSignal) => streamEvents('/api/agent/runs', {goal}, onEvent, signal),
+  resumeAgent: (threadId: string, decision: {decision: 'approve' | 'reject'; confirmation?: string; reason?: string}, onEvent: (event: AgentEvent) => void) => streamEvents(`/api/agent/runs/${threadId}/resume`, decision, onEvent),
 };

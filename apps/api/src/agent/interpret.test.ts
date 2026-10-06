@@ -19,9 +19,13 @@ describe('rule-based command reading', () => {
   });
   it('understands IDs the way speech engines write them', () => {
     expect(interpretWithRules('forget customer 10 42', customers)).toMatchObject({action: 'erase', customerId: 'CUST-1042'});
-    expect(interpretWithRules('is it safe to delete 9001', customers)).toMatchObject({customerId: 'CUST-9001'});
+    expect(interpretWithRules('is it safe to delete 9001', customers)).toMatchObject({action: 'investigate', customerId: 'CUST-9001'});
   });
-  it('treats questions as read-only investigations', () => expect(interpretWithRules('who depends on Priya data?', customers)).toMatchObject({action: 'investigate', customerId: 'CUST-9001'}));
+  it('treats questions as read-only investigations', () => {
+    expect(interpretWithRules('who depends on Priya data?', customers)).toMatchObject({action: 'investigate', customerId: 'CUST-9001'});
+    expect(interpretWithRules('Is it safe to erase Priya?', customers)).toMatchObject({action: 'investigate', customerId: 'CUST-9001'});
+    expect(interpretWithRules('Can you wipe Mira\'s data?', customers).action).toBe('erase');
+  });
   it('asks which customer when more than one fits', () => {
     const intent = interpretWithRules('erase mira and lena', customers);
     expect(intent).toMatchObject({customerId: null, candidates: ['CUST-1042', 'CUST-7001'], confidence: 'low'});

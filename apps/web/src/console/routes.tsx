@@ -1,6 +1,7 @@
 import {Route, Routes} from 'react-router-dom';
 import ConsoleLayout from './ConsoleLayout';
 import RequestDetail from './RequestDetail';
+import AgentPage from './AgentPage';
 import {Approvals, AuditLog, Customers, NewRequestPage, Overview, Policies, Requests, Systems} from './pages';
 import '../styles/console.css';
 
@@ -8,6 +9,7 @@ export default function ConsoleRoutes() {
   return <Routes>
     <Route element={<ConsoleLayout />}>
       <Route index element={<Overview />} />
+      <Route path="agent" element={<AgentPage />} />
       <Route path="requests" element={<Requests />} />
       <Route path="requests/new" element={<NewRequestPage />} />
       <Route path="requests/:id" element={<RequestDetail />} />

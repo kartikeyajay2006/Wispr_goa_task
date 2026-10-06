@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState, type FormEvent} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {ArrowRight, CheckCircle2, Database, HardDrive, Inbox, ListChecks, Loader2, Plus, ScrollText, ShieldAlert, ShieldCheck, Users} from 'lucide-react';
+import {ArrowRight, Bot, CheckCircle2, Database, HardDrive, Inbox, ListChecks, Loader2, Plus, ScrollText, ShieldAlert, ShieldCheck, Users} from 'lucide-react';
 import {api, type RequestSummary} from '../api';
 import {ActionChip, Empty, ErrorNotice, FootprintBar, Legend, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
 
@@ -58,7 +58,7 @@ export function Overview() {
   const overview = useQuery({queryKey: ['overview'], queryFn: api.overview, refetchInterval: 8_000});
   const data = overview.data;
   return <div className="page">
-    <PageHead title="Overview">Live state of every connected system and request.</PageHead>
+    <PageHead title="Overview" action={<Link className="btn btn-primary" to="/console/agent"><Bot size={15} />Ask the agent</Link>}>Live state of every connected system and request.</PageHead>
     <ErrorNotice error={overview.error} />
     <div className="kpis">
       <Link className="kpi" to="/console/approvals"><span>Waiting on a human</span><strong>{data ? data.requests.awaitingApproval + data.requests.ready : '…'}</strong><small>{data ? `${data.requests.awaitingApproval} to approve, ${data.requests.ready} to execute` : ''}</small></Link>

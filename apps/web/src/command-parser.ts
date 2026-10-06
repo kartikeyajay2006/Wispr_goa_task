@@ -1,5 +1,5 @@
 export type CommandQuery = 'metrics' | 'report' | 'blast-radius' | 'backup' | 'verification' | 'plan' | 'footprint' | 'dependencies' | 'sandbox' | 'audit';
-export type ConsolePage = 'overview' | 'requests' | 'approvals' | 'customers' | 'systems' | 'policies' | 'audit';
+export type ConsolePage = 'overview' | 'requests' | 'approvals' | 'customers' | 'systems' | 'policies' | 'audit' | 'agent';
 export type CommandIntent =
   | {kind: 'request'; customerId: string; dryRun?: boolean}
   | {kind: 'approve' | 'reject' | 'rollback'; customerId?: string}
@@ -26,7 +26,7 @@ const queries: Array<[RegExp, CommandQuery]> = [
   [/\bsandbox\b/i, 'sandbox'],
   [/\b(audit trail|events|history)\b/i, 'audit'],
 ];
-const pages: ConsolePage[] = ['overview', 'requests', 'approvals', 'customers', 'systems', 'policies', 'audit'];
+const pages: ConsolePage[] = ['overview', 'requests', 'approvals', 'customers', 'systems', 'policies', 'audit', 'agent'];
 
 export function parseCommand(input: string): CommandIntent {
   const text = input.trim();
@@ -36,7 +36,7 @@ export function parseCommand(input: string): CommandIntent {
   if (/\b(roll ?back|restore)\b/i.test(text)) return {kind: 'rollback', customerId};
   if (/\b(request approval|approve)\b/i.test(text)) return {kind: 'approve', customerId};
   if (/\breject\b/i.test(text)) return {kind: 'reject', customerId};
-  const navigation = text.match(/\b(?:go to|open|show|view)\s+(?:the\s+)?(overview|dashboard|requests|approvals|customers|systems|policies|policy|audit log)\b/i);
+  const navigation = text.match(/\b(?:go to|open|show|view)\s+(?:the\s+)?(overview|dashboard|requests|approvals|customers|systems|policies|policy|audit log|agent)\b/i);
   if (navigation && !customerId) { const word = navigation[1].toLowerCase(); return {kind: 'navigate', page: word === 'dashboard' ? 'overview' : word === 'policy' ? 'policies' : word === 'audit log' ? 'audit' : word as ConsolePage}; }
   for (const [pattern, query] of queries) if (pattern.test(text)) return {kind: 'query', query, customerId};
   if (customerId) return /\bdry[\s-]?run\b/i.test(text) ? {kind: 'request', customerId, dryRun: true} : {kind: 'request', customerId};
@@ -53,9 +53,29 @@ export function describeIntent(intent: CommandIntent): string | undefined {
     case 'approve': return `Review and approve the plan${intent.customerId ? ` for ${intent.customerId}` : ''}`;
     case 'reject': return `Reject the plan${intent.customerId ? ` for ${intent.customerId}` : ''}`;
     case 'rollback': return `Roll back from backup${intent.customerId ? ` for ${intent.customerId}` : ''}`;
-    case 'navigate': return `Go to ${intent.page === 'audit' ? 'the audit log' : intent.page}`;
+    case 'navigate': return `Go to ${intent.page === 'audit' ? 'the audit log' : intent.page === 'agent' ? 'the agent' : intent.page}`;
     case 'reset': return 'Reset the demo data';
     case 'blocked': return 'Not allowed: deletions only run from the guarded Execute button';
     case 'query': return intent.query ? `Show ${QUERY_LABEL[intent.query]}${intent.customerId ? ` for ${intent.customerId}` : ''}` : undefined;
+  }
+}
+
+/** True when the local reading is specific enough to act on without asking the server. */
+export const isConfident = (intent: CommandIntent) => intent.kind === 'navigate' || intent.kind === 'reset' || intent.kind === 'blocked' || (intent.kind === 'request' && Boolean(intent.customerId)) || (intent.kind === 'query' && Boolean(intent.query) && Boolean(intent.customerId));
+
+const TAB_QUERY: Record<string, CommandQuery> = {overview: 'metrics', footprint: 'footprint', dependencies: 'dependencies', plan: 'plan', sandbox: 'sandbox', backup: 'backup', verification: 'verification', report: 'report', audit: 'audit'};
+/** Maps the server's reading (Claude or rules) onto the console's command intents. */
+export function fromServerIntent(intent: {action: string; customerId: string | null; tab: string | null; page: string | null}): CommandIntent | {kind: 'investigate'; customerId?: string} | {kind: 'unknown'} {
+  const customerId = intent.customerId ?? undefined;
+  switch (intent.action) {
+    case 'erase': return customerId ? {kind: 'request', customerId} : {kind: 'unknown'};
+    case 'dry_run': return customerId ? {kind: 'request', customerId, dryRun: true} : {kind: 'unknown'};
+    case 'investigate': return {kind: 'investigate', customerId};
+    case 'approve': case 'reject': case 'rollback': return {kind: intent.action, customerId};
+    case 'show': return {kind: 'query', query: TAB_QUERY[intent.tab ?? ''] ?? 'metrics', customerId};
+    case 'navigate': return intent.page && (pages as string[]).includes(intent.page) ? {kind: 'navigate', page: intent.page as ConsolePage} : {kind: 'unknown'};
+    case 'reset': return {kind: 'reset'};
+    case 'blocked': return {kind: 'blocked'};
+    default: return {kind: 'unknown'};
   }
 }

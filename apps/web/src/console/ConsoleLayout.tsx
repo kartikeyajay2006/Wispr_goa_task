@@ -1,14 +1,16 @@
 import {useEffect, useState} from 'react';
 import {Link, NavLink, Outlet, useNavigate} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import {BookOpen, Database, Inbox, LayoutDashboard, ListChecks, RotateCcw, ScrollText, Search, UserRound, Users} from 'lucide-react';
+import {BookOpen, Bot, Database, Inbox, LayoutDashboard, ListChecks, RotateCcw, ScrollText, Search, UserRound, Users} from 'lucide-react';
 import {api} from '../api';
 import {useOperator} from '../operator';
-import {CommandPalette, speechSupported} from '../components/CommandPalette';
+import {CommandPalette} from '../components/CommandPalette';
+import {speechSupported} from '../components/speech';
 import {Logo, toast} from '../components/ui';
 
 const NAV = [
   {to: '/console', label: 'Overview', icon: LayoutDashboard, end: true},
+  {to: '/console/agent', label: 'Agent', icon: Bot},
   {to: '/console/requests', label: 'Requests', icon: ListChecks},
   {to: '/console/approvals', label: 'Approvals', icon: Inbox, badge: true},
   {to: '/console/customers', label: 'Customers', icon: Users},
