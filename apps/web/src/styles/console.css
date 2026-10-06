@@ -180,7 +180,7 @@ a.kpi:hover { background: var(--surface-3); }
 
 /* ---------- Agent ---------- */
 .engine-badge { display: inline-flex; align-items: center; gap: 0.5rem; max-width: 520px; padding: 0.45rem 0.8rem; border-radius: 999px; font-size: var(--step--1); color: var(--text-dim); background: var(--surface-2); border: 1px solid var(--line-strong); }
-.engine-badge.claude { color: var(--info-text); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.engine-badge.live { color: var(--info-text); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .agent-composer { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; border-color: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 6%, transparent), var(--shadow-lift); }
 .agent-input { flex: 1; min-width: 0; width: 0; border: 0; background: transparent; font-size: var(--step-1); outline: none; color: var(--text); }
 .agent-input::placeholder { color: var(--muted); }

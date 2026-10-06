@@ -64,7 +64,7 @@ export function describeIntent(intent: CommandIntent): string | undefined {
 export const isConfident = (intent: CommandIntent) => intent.kind === 'navigate' || intent.kind === 'reset' || intent.kind === 'blocked' || (intent.kind === 'request' && Boolean(intent.customerId)) || (intent.kind === 'query' && Boolean(intent.query) && Boolean(intent.customerId));
 
 const TAB_QUERY: Record<string, CommandQuery> = {overview: 'metrics', footprint: 'footprint', dependencies: 'dependencies', plan: 'plan', sandbox: 'sandbox', backup: 'backup', verification: 'verification', report: 'report', audit: 'audit'};
-/** Maps the server's reading (Claude or rules) onto the console's command intents. */
+/** Maps the server's reading (model or rules) onto the console's command intents. */
 export function fromServerIntent(intent: {action: string; customerId: string | null; tab: string | null; page: string | null}): CommandIntent | {kind: 'investigate'; customerId?: string} | {kind: 'unknown'} {
   const customerId = intent.customerId ?? undefined;
   switch (intent.action) {

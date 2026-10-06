@@ -2,7 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState, type CSSProperties} f
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {ArrowRight, Bot, Command, Loader2, Mic, MicOff, Search, Sparkles} from 'lucide-react';
-import {api, type Interpretation} from '../api';
+import {api, modelProvider, type Interpretation} from '../api';
 import {describeIntent, fromServerIntent, isConfident, parseCommand, type CommandIntent} from '../command-parser';
 import {toast} from './ui';
 import {useSpeech} from './speech';
@@ -16,7 +16,7 @@ type Row = {label: string; source: 'local' | 'claude' | 'rules' | 'agent' | 'sug
 
 /**
  * Ctrl/Cmd+K command bar. Clear commands are read instantly in the browser; anything looser
- * ("wipe Mira's data") goes to the server, where Claude (or the rule-based reader) resolves it.
+ * ("wipe Mira's data") goes to the server, where the model (or the rule-based reader) resolves it.
  * Nothing typed or spoken here can execute a deletion.
  */
 export function CommandPalette({open, onClose}: {open: boolean; onClose: () => void}) {
@@ -123,7 +123,7 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
 
   if (!open) return null;
   const choose = (row: Row) => { setText(row.command); void perform(row.action(), row.command); };
-  const sourceLabel = (row: Row) => row.source === 'claude' ? `Claude${reading.result?.model ? ` (${reading.result.model})` : ''}` : row.source === 'rules' ? 'Rule-based reader' : undefined;
+  const sourceLabel = (row: Row) => row.source === 'claude' ? `${modelProvider(reading.result?.model)}${reading.result?.model ? ` (${reading.result.model})` : ''}` : row.source === 'rules' ? 'Rule-based reader' : undefined;
 
   return <div className="palette-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="palette" role="dialog" aria-modal="true" aria-label="Command bar">

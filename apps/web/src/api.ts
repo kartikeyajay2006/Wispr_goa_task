@@ -41,6 +41,8 @@ export type Verification = {requestId: string; customerId: string; checkedAt: st
 export type Report = {reportId: string; requestId: string; customerId: string; status: string; state?: string; planHash: string; generatedAt: string; request?: Workflow['request']; approval?: {approvedBy?: string; approvedAt?: string; expiresAt: string; used: boolean}; rejection?: Workflow['rejection']; actions: Array<{id: string; system: string; resource: string; action: string; planned: number; changed: number; status: string}>; sandbox: {failures: string[]; warnings: string[]; checks: number}; backup: {checks: Array<{system: string; verified: boolean; reason: string}>; failures: string[]}; summary: {systems: number; records: number; deleted: number; anonymized: number; retained: number; impact: string}; metrics: {dataAssetsFound: number; systemsScanned: number; deletionActions: number; safetyChecks: number; policyBlocks: number; residualPii: number; totalExecutionTimeMs: number}; controls: {sandbox: string; backup: string; approval: string; auditEvents: number}; verification: {postgres: boolean; minio: boolean; remainingMatches: number}};
 export type Health = {ok: boolean; mode: string; allowlist: string[]};
 export type AssistantStatus = {engine: 'claude'; model: string} | {engine: 'rules'; reason: string};
+/** Whose model runs the agents, read from the model ID ("claude" on the wire means any model-driven engine). */
+export const modelProvider = (model?: string) => /^(gpt|chatgpt|o\d)/i.test(model ?? '') ? 'OpenAI' : 'Claude';
 export type ServerIntent = {action: 'erase' | 'dry_run' | 'investigate' | 'approve' | 'reject' | 'rollback' | 'show' | 'navigate' | 'reset' | 'blocked' | 'unknown'; customerId: string | null; candidates: string[]; tab: string | null; page: string | null; readback: string; confidence: 'high' | 'medium' | 'low'};
 export type Interpretation = {intent: ServerIntent; engine: 'claude' | 'rules'; model?: string; note?: string};
 
@@ -60,7 +62,7 @@ export type AgentEvent =
   | {type: 'briefing'; briefing: Briefing; engine: 'claude' | 'rules'}
   | {type: 'error'; message: string}
   | {type: 'done'; status: 'running' | 'awaiting_approval' | 'completed' | 'failed'; requestId?: string};
-export type AgentRun = {threadId: string; goal: string; operator: string; startedAt: string; updatedAt: string; status: 'running' | 'awaiting_approval' | 'completed' | 'failed'; engine: 'claude' | 'rules'; customerId?: string; requestId?: string; headline?: string};
+export type AgentRun = {threadId: string; goal: string; operator: string; startedAt: string; updatedAt: string; status: 'running' | 'awaiting_approval' | 'completed' | 'failed'; engine: 'claude' | 'rules'; model?: string; customerId?: string; requestId?: string; headline?: string};
 
 export class ApiError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 
