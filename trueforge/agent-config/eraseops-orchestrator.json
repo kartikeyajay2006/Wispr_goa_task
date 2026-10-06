@@ -1,16 +1,27 @@
 {
   "name": "EraseOps Orchestrator",
   "mode": "local-demo",
+  "runtime": "LangGraph.js state graph in apps/api/src/agent/graph.ts",
+  "model": "claude-opus-5-5 (ERASEOPS_MODEL); rule-based twins when no API key is set",
   "modelContext": "metadata-only",
   "mcpServer": "apps/mcp-server",
+  "nodes": [
+    {"id": "understand", "label": "Intake agent", "uses": "structured output"},
+    {"id": "investigate", "label": "Discovery agent", "uses": "tool loop over safe MCP tools"},
+    {"id": "assess", "label": "Risk agent", "uses": "structured output merged with deterministic facts"},
+    {"id": "propose", "label": "Planner", "uses": "WorkflowService.create (sandbox, backup, policy)"},
+    {"id": "brief", "label": "Reporter", "uses": "structured output"},
+    {"id": "await_approval", "label": "Human checkpoint", "uses": "LangGraph interrupt with checkpointer"},
+    {"id": "execute", "label": "Executor", "uses": "guarded approve and execute as the approving human"}
+  ],
   "toolPolicy": {
     "safe": ["discover_customer_postgres", "discover_customer_s3", "inspect_database_schema", "inspect_foreign_keys", "inspect_object_metadata", "count_customer_records", "preview_deletion", "calculate_dependencies", "rescan_customer", "generate_report_data"],
     "reversible": ["create_customer_backup", "export_customer_snapshot", "create_verification_snapshot"],
-    "destructive": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"]
+    "destructive": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"],
+    "exposedToAgents": ["discover_customer_postgres", "discover_customer_s3", "calculate_dependencies", "count_customer_records", "rescan_customer", "preview_deletion"]
   },
-  "sandbox": {"requiredBeforeApproval": true, "network": "disabled", "writes": "fixture-only"},
-  "humanCheckpoint": {"requiredBefore": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"]},
-  "subagents": ["discovery", "dependency", "privacy-planner", "safety", "verification", "execution-coordinator", "audit"],
+  "sandbox": {"requiredBeforeApproval": true, "network": "disabled", "writes": "isolated copy or rolled-back transaction"},
+  "humanCheckpoint": {"requiredBefore": ["delete_postgres_records", "anonymize_postgres_records", "delete_s3_objects"], "confirmation": "type the customer ID"},
   "authority": "deterministic-policy-engine",
   "instruction": "Never execute destructive operations directly. Return metadata, classifications, dependency summaries, plan proposals, verification results, and audit explanations. The application policy engine is authoritative even if an agent or checkpoint says otherwise."
 }

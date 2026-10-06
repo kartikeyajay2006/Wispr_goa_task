@@ -18,6 +18,16 @@ EraseOps is a demo of irreversible operations done carefully. These are the cont
 5. **Guarded execution.** `POST /api/requests/:id/execute-guarded` checks request ID, approval ID and plan hash against the server's own copy (`apps/api/src/destructive-guard.ts`), requires an operator identity, and is rate-limited per operator. The engine re-checks expiry, reuse and selector shape for every action, and the owning connector re-checks the plan hash before mutating anything.
 6. **Rescan.** Execution is only `COMPLETED` when every connector reports zero residual personal data. Otherwise the request fails and `POST /api/requests/:id/rollback` restores the request backup.
 
+## Agents
+
+The LangGraph agents (`apps/api/src/agent`) sit outside the destructive path:
+
+- Their tools are the read-only MCP catalog, invoked with `approved: false`. Destructive tool names are never declared to the model, and `runAgentTool` refuses them if a model asks anyway.
+- Models receive metadata and masked names only. Customer IDs a model returns are checked against the live customer list.
+- The planner opens requests through the same `WorkflowService` as the console, so the sandbox, backup and policy gates are unchanged.
+- The run pauses with LangGraph `interrupt()`. Resuming requires the `x-operator-identity` header and the typed customer ID; the executor then approves and executes as that person, through the guarded route and its rate limit.
+- Every Claude call opts into server-side refusal fallbacks and checks the stop reason; a refusal or failure falls back to the rule-based twin of that node.
+
 The MCP server (`apps/mcp-server`) applies the same rules: destructive tools need injected authorization whose plan hash and approval ID match, plus the same rate limiter.
 
 ## Audit trail

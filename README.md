@@ -8,18 +8,21 @@
   <img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=0c1024">
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169e1?logo=postgresql&logoColor=white">
   <img alt="MinIO" src="https://img.shields.io/badge/MinIO-S3%20SigV4-c72e49?logo=minio&logoColor=white">
+  <img alt="LangGraph" src="https://img.shields.io/badge/agents-LangGraph-1c3c3c?logo=langchain&logoColor=white">
+  <img alt="Claude" src="https://img.shields.io/badge/Claude-Opus%205.5-d4a27f">
   <img alt="Voice commands" src="https://img.shields.io/badge/voice-Web%20Speech%20API-9b7bff">
 </p>
 
 <h3 align="center">Delete a customer from every system, and prove it.</h3>
 
 <p align="center">
-EraseOps finds a person's records across PostgreSQL and object storage, rehearses the deletion on an isolated copy, backs everything up and reads it back, waits for a human to approve <i>one exact plan hash</i>, executes it, then rescans until nothing personal is left. Every step lands in a tamper-evident hash chain.
+Ask in plain words, or out loud: <i>"can you wipe Mira's data?"</i>. A LangGraph team of Claude-powered agents finds the person's records across PostgreSQL and object storage, rehearses the deletion on an isolated copy, backs everything up and reads it back, then <b>stops for a human</b> to approve <i>one exact plan hash</i>. After execution it rescans until nothing personal is left. Every step lands in a tamper-evident hash chain.
 </p>
 
 <p align="center">
   <a href="#quick-start"><b>Quick start</b></a> ·
   <a href="#what-happens-to-a-request"><b>How it works</b></a> ·
+  <a href="#the-agents"><b>Agents</b></a> ·
   <a href="#demo-customers"><b>Demo customers</b></a> ·
   <a href="#a-tour-of-the-console"><b>Tour</b></a> ·
   <a href="#architecture"><b>Architecture</b></a> ·
@@ -40,6 +43,7 @@ A "right to erasure" request sounds like one `DELETE`. In practice the customer 
 
 EraseOps treats erasure like a production change:
 
+- **Agents do the legwork, people decide.** Claude agents investigate with read-only tools and prepare the plan; they have no tool that can delete anything.
 - **Nothing is guessed.** A versioned retention policy decides, per table and bucket, whether data is deleted, redacted, or kept, and records why.
 - **Nothing runs untested.** The plan is applied to an isolated copy first. On PostgreSQL that is a real transaction that is always rolled back, so the database enforces every foreign key itself.
 - **Nothing runs unapproved.** A person types the customer ID to approve one SHA-256 plan hash. The approval expires and works exactly once.
@@ -79,6 +83,42 @@ stateDiagram-v2
   COMPLETED --> [*]
   ROLLED_BACK --> [*]
 ```
+
+## The agents
+
+The agents are a [LangGraph](https://langchain-ai.github.io/langgraphjs/) state graph inside the API ([`apps/api/src/agent/graph.ts`](apps/api/src/agent/graph.ts)). Claude (`claude-opus-5-5`, via the official Anthropic SDK) drives the nodes that need judgement; the irreversible steps stay deterministic and behind a person.
+
+```mermaid
+flowchart LR
+  G([Goal, typed or spoken]) --> I[Intake agent<br/>reads the command]
+  I --> D[Discovery agent<br/>Claude + read-only MCP tools]
+  D --> R[Risk agent<br/>Claude + hard facts]
+  R -->|erase or dry run| P[Planner<br/>sandbox + verified backup]
+  R -->|question| B1
+  P --> B1[Reporter<br/>briefing]
+  B1 -->|plan ready| H{{Human checkpoint<br/>LangGraph interrupt}}
+  H -->|types the customer ID| X[Executor<br/>guarded run + rescan]
+  H -->|rejects| J[Executor<br/>records rejection]
+  X --> B2[Reporter<br/>final briefing]
+  J --> B2
+```
+
+| | |
+|---|---|
+| **Tools** | The discovery agent calls the EraseOps MCP catalog (`discover_customer_postgres`, `calculate_dependencies`, `rescan_customer`, ...). Destructive MCP tools are never declared to the model, and the MCP boundary refuses them anyway. |
+| **Human in the loop** | `interrupt()` pauses the run with a checkpointed thread. Resuming needs the operator's identity and the typed customer ID; the executor then approves and runs the guarded path as that person. |
+| **Grounded risk** | Deterministic facts (shared rows, retention holds, residual data) are merged with Claude's judgement: the model can raise risk but never drop a known blocker. |
+| **Privacy** | Models see metadata and masked names ("Mira K."), never emails or values. Customer IDs a model invents are discarded. |
+| **No key, no problem** | Without `ANTHROPIC_API_KEY` every node runs a rule-based twin, and the UI says which engine answered. Each Claude call uses server-side refusal fallbacks. |
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screens/agent-checkpoint.webp" alt="Agent page: the agent graph on the left, the transcript with tool calls and a briefing, and the human checkpoint card asking the operator to type CUST-1042."><br><b>Paused at the human checkpoint.</b> The agents investigated and prepared the plan; nothing runs until a person types the customer ID.</td>
+    <td width="50%"><img src="docs/assets/screens/agent-investigate.webp" alt="Agent page answering 'Is it safe to erase Priya?' with high risk because two other customers depend on her workspace."><br><b>Read-only investigation.</b> "Is it safe to erase Priya?" ends with a high-risk briefing and no request opened.</td>
+  </tr>
+</table>
+
+Presenting this? [`docs/DEMO.md`](docs/DEMO.md) has a three-minute script, what is AI versus deterministic, and answers to the questions judges ask.
 
 ## Demo customers
 
@@ -136,6 +176,8 @@ npm run dev
 
 Open **http://localhost:5173** for the landing page and **http://localhost:5173/console** for the operator console. The API listens on `http://localhost:3001`.
 
+To let Claude run the agents and read commands, start with a key: `ANTHROPIC_API_KEY=sk-ant-... npm run dev`. Without one, the same agents run on deterministic rules.
+
 The default mode keeps the synthetic dataset **in memory**. Deletions are real (discovery after an erasure finds nothing), but nothing leaves your machine. **Reset demo data** in the sidebar restores the fixture.
 
 ### Run against real PostgreSQL and MinIO
@@ -169,13 +211,14 @@ In local mode the sandbox runs inside a PostgreSQL transaction that is always ro
 | Piece | Where | Role |
 |---|---|---|
 | Operator console | [`apps/web`](apps/web) | React 18, React Query, React Router, React Flow; code-split per route |
-| API | [`apps/api`](apps/api) | Express routes over `WorkflowService` (create, approve, reject, execute, rollback) plus live read models |
+| Agents | [`apps/api/src/agent`](apps/api/src/agent) | LangGraph.js state graph, Claude tool loop over MCP tools, command interpreter, rule-based twins |
+| API | [`apps/api`](apps/api) | Express routes over `WorkflowService` (create, approve, reject, execute, rollback), live read models, server-sent events for agent runs |
 | MCP server | [`apps/mcp-server`](apps/mcp-server) | JSON-RPC over stdio; destructive tools need injected authorization bound to the plan hash |
 | Connectors | [`packages/connectors`](packages/connectors) | Mock connectors over a stateful dataset, and real PostgreSQL/MinIO adapters (SigV4 client, no SDK) driven by one schema registry |
 | Policy engine | [`packages/policy-engine`](packages/policy-engine) | Retention policy, execution preconditions, destructive-request identity checks |
 | Sandbox | [`packages/sandbox`](packages/sandbox) | Merges static plan checks with each connector's simulation report |
 | Backup, audit, report | [`packages/backup`](packages/backup), [`packages/audit`](packages/audit), [`packages/report`](packages/report) | Checksummed manifests, SHA-256 hash chain, certificate data |
-| Python backend | [`backend`](backend) | FastAPI, SQLAlchemy and LangGraph reference implementation with its own tests (`pytest backend`) |
+| Python backend | [`backend`](backend) | FastAPI, SQLAlchemy and a Python LangGraph reference graph of the same workflow, with its own tests (`pytest backend`) |
 
 ## Safety model
 
@@ -184,6 +227,7 @@ In local mode the sandbox runs inside a PostgreSQL transaction that is always ro
 - **Parameterized everything.** Every discovery, erasure and rescan query binds the customer as `$1`; table and column identifiers come only from the schema registry, never from input.
 - **One guarded execution route.** `POST /api/requests/:id/execute-guarded` needs the request ID, approval ID, plan hash and an `x-operator-identity` header, and is rate-limited. The legacy `/execute` route answers `410 Gone`.
 - **Approval is narrow.** Bound to one plan hash, single-use, and time-boxed (`APPROVAL_TTL_MINUTES`). Dry runs can never be approved.
+- **Agents cannot delete.** Agent tools are read-only MCP calls made with `approved: false`; a destructive tool name is refused at the boundary. Only a resumed human checkpoint reaches the guarded route.
 - **Proof, not trust.** Execution goes through the connector that owns the data, and a connector that claims success without deleting is caught by the rescan (there is a test for exactly that).
 - **Tamper evidence.** Each audit event hashes its predecessor, and `GET /api/audit` re-verifies every chain. The PostgreSQL schema also ships an append-only `eraseops_audit_events` table whose trigger rejects `UPDATE` and `DELETE`.
 
@@ -191,11 +235,12 @@ More detail in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Voice and command bar
 
-Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console. The microphone uses the browser's Web Speech API (Chrome, Edge, Safari) and understands IDs the way speech engines transcribe them, such as "customer 10 42".
+Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console, or use the microphone on the **Agent** page. Speech comes from the browser's Web Speech API (Chrome, Edge, Safari). Clear commands are read instantly in the browser; loose phrasing such as "can you forget Arjun's data?" goes to the interpreter, where Claude (or the rule-based reader) resolves names and spoken IDs ("customer 10 42") and reads the result back before anything happens.
 
 | Say or type | Result |
 |---|---|
-| `erase customer 1042` | Opens a request (discovery, sandbox, backup) |
+| `erase customer 1042` · `can you wipe Mira's data?` | Opens a request (discovery, sandbox, backup) |
+| `is it safe to erase Priya?` | Runs the agents as a read-only investigation |
 | `dry run for cust 3175` | Opens a review-only dry run |
 | `show the dependency graph for customer 9001` | Opens that request on the graph tab |
 | `verify deletion` · `open the report` · `show the plan` | Switches tabs on the current request |
@@ -220,6 +265,11 @@ Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> anywhere in the console. The m
 | `POST` | `/api/requests/:id/execute-guarded` | `{approvalId, planHash}` + operator header |
 | `POST` | `/api/requests/:id/rollback` | Restore from the request backup after a failed run |
 | `GET` | `/api/requests/:id/{plan,sandbox,backup,blast-radius,verification,report,metrics,audit,persistence,authoritative}` | Evidence views; `verification` rescans live |
+| `GET` | `/api/assistant/status` | Which engine reads commands and runs agents (Claude model or rules) |
+| `POST` | `/api/assistant/interpret` | `{text}` to one structured intent with a read-back sentence |
+| `POST` | `/api/agent/runs` | `{goal}`; streams the LangGraph run as server-sent events until it finishes or reaches the human checkpoint |
+| `POST` | `/api/agent/runs/:id/resume` | `{decision: "approve" \| "reject", confirmation, reason}` + operator header; streams the rest of the run |
+| `GET` | `/api/agent/runs` | Recent agent runs with status and linked request |
 | `POST` | `/api/demo/reset` | Restore the fixture (in memory, or reseed Docker in local mode) |
 
 ```bash
@@ -246,12 +296,16 @@ Copy [`.env.example`](.env.example) to `.env`; the API loads it on start, and re
 | `ERASEROPS_PERSISTENCE` | `memory` | `postgres` stores workflows in PostgreSQL |
 | `DATABASE_URL`, `MINIO_*` | match `docker-compose.yml` | Local infrastructure |
 | `CORS_ORIGIN` | `*` | Comma-separated allowed origins |
+| `ANTHROPIC_API_KEY` | unset | Lets Claude run the agents and read commands |
+| `ERASEOPS_AI` | `auto` | `auto` (Claude when a key is set), `claude` (force, e.g. with an `ant auth login` profile), or `off` |
+| `ERASEOPS_MODEL` | `claude-opus-5-5` | Model used by every agent |
 
 ## Project layout
 
 ```text
 apps/
   api/            Express API: WorkflowService, read models, guarded routes
+    src/agent/    LangGraph agents, Claude client, command interpreter, MCP-backed tools
   web/            React console and landing page
   mcp-server/     MCP tools over stdio
 packages/
@@ -273,7 +327,11 @@ npm run test:integration          # needs docker compose up -d
 pip install -r backend/requirements.txt && pytest backend
 ```
 
-The TypeScript suite covers plan hashing, approval expiry and reuse, the state machine, connector parameterization, data-driven sandbox failures, backup tamper detection, rollback restoring every row and object, cross-customer isolation, rate limiting, audit-chain tamper detection, and full HTTP lifecycles against a listening server. The integration suite repeats erase, verify and restore against real PostgreSQL and MinIO.
+The agent suite runs the whole LangGraph flow with a scripted model: tool choice, a refused destructive call, the human checkpoint, resume, rejection, and fallback to rules when Claude fails mid-run. The TypeScript suite also covers plan hashing, approval expiry and reuse, the state machine, connector parameterization, data-driven sandbox failures, backup tamper detection, rollback restoring every row and object, cross-customer isolation, rate limiting, audit-chain tamper detection, and full HTTP lifecycles against a listening server. The integration suite repeats erase, verify and restore against real PostgreSQL and MinIO.
+
+## How this was built
+
+EraseOps was built by **Kartikeya Yadav** and **Ankit Pandey**. We used AI coding assistance (Claude Code) during development, including for the stateful connectors, the LangGraph agents and the console. Every feature is covered by the test suites above, which run in CI on every push, and [`docs/DEMO.md`](docs/DEMO.md) explains the design decisions.
 
 ---
 
