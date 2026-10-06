@@ -64,7 +64,7 @@ export async function listCustomers({postgres, minio, store, context}: Deps) {
         ...sharedSignals(shared),
         ...retained.length ? [`${retained.length} ${retained.length === 1 ? 'resource' : 'resources'} held under retention policy`] : [],
       ],
-      latestRequest: latest && {requestId: latest.requestId, state: latest.state, status: latest.status, createdAt: latest.createdAt},
+      latestRequest: latest && {requestId: latest.requestId, state: latest.state, status: latest.status, dryRun: latest.dryRun, createdAt: latest.createdAt},
     };
   }));
 }

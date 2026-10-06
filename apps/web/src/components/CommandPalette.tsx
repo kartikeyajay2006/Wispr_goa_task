@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState, type CSSProperties} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {ArrowRight, Bot, Command, Loader2, Mic, MicOff, Search, Sparkles} from 'lucide-react';
@@ -35,7 +35,7 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
   const runTextRef = useRef<(value: string) => void>(() => undefined);
   const speech = useSpeech({onInterim: transcript => { setHeard(transcript); setText(transcript); }, onFinal: transcript => runTextRef.current(transcript), onError: message => toast.error(message)});
   const {listening, cancel} = speech;
-  useEffect(() => { if (open) { setText(''); setHeard(''); setActive(0); setReading({text: '', loading: false}); setTimeout(() => inputRef.current?.focus(), 10); } else cancel(); }, [open, cancel]);
+  useEffect(() => { if (open) { setText(''); setHeard(''); setActive(0); setReading({text: '', loading: false}); } else cancel(); }, [open, cancel]);
 
   const interpret = useCallback(async (value: string) => {
     setReading({text: value, loading: true});
@@ -129,7 +129,7 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
     <div className="palette" role="dialog" aria-modal="true" aria-label="Command bar">
       <div className="palette-input">
         {busy || reading.loading ? <Loader2 size={18} className="spin" /> : <Search size={18} className="muted" />}
-        <input ref={inputRef} value={text} placeholder={speech.supported ? 'Type or say a command, e.g. "wipe Mira\'s data"' : 'Type a command, e.g. "wipe Mira\'s data"'} aria-label="Command" onChange={event => { setText(event.target.value); setActive(0); }}
+        <input ref={inputRef} autoFocus value={text} placeholder={speech.supported ? 'Type or say a command, e.g. "wipe Mira\'s data"' : 'Type a command, e.g. "wipe Mira\'s data"'} aria-label="Command" onChange={event => { setText(event.target.value); setActive(0); }}
           onKeyDown={event => {
             if (event.key === 'Escape') onClose();
             else if (event.key === 'ArrowDown') { event.preventDefault(); setActive(index => Math.min(index + 1, rows.length - 1)); }
@@ -143,7 +143,7 @@ export function CommandPalette({open, onClose}: {open: boolean; onClose: () => v
       {heard && <div className="heard" aria-live="polite">Heard: “{heard}”</div>}
       <ul className="palette-list" role="listbox" aria-label="Suggestions">
         {needsServer && reading.loading && <li className="small muted" style={{padding: '0.6rem 0.75rem'}}>Reading your command…</li>}
-        {rows.map((row, index) => <li key={`${row.source}-${row.label}`}><button type="button" role="option" aria-selected={index === active} data-active={index === active} className={row.source === 'suggestion' ? undefined : 'intent'} onMouseEnter={() => setActive(index)} onClick={() => choose(row)}>
+        {rows.map((row, index) => <li key={`${row.source}-${row.label}`} style={{'--i': index} as CSSProperties}><button type="button" role="option" aria-selected={index === active} data-active={index === active} className={row.source === 'suggestion' ? undefined : 'intent'} onMouseEnter={() => setActive(index)} onClick={() => choose(row)}>
           {row.source === 'agent' ? <Bot size={14} /> : row.source === 'suggestion' ? <Command size={14} /> : <Sparkles size={14} />}
           <span>{row.label}{sourceLabel(row) && <small className="engine-tag">{sourceLabel(row)}</small>}</span><ArrowRight size={14} />
         </button></li>)}

@@ -129,6 +129,9 @@ describe('HTTP read models', () => {
     const {body} = await call('GET', '/api/requests');
     expect(body.map((request: any) => request.customerId)).toEqual(['CUST-2088', 'CUST-7001']);
     expect(body[1].blockedBy).toContain('ARCHIVE storage');
+    await create('CUST-3175', {dryRun: true});
+    const aiko = (await call('GET', '/api/customers')).body.find((customer: any) => customer.customerId === 'CUST-3175');
+    expect(aiko.latestRequest).toMatchObject({state: 'AWAITING_HUMAN_APPROVAL', dryRun: true});
   });
 
   it('reports system inventory, policy rules and the audit log from live state', async () => {

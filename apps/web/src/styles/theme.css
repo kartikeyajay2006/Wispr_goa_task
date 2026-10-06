@@ -70,7 +70,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 40px; padding: 0 1rem; border-radius: var(--radius-control);
   border: 1px solid var(--line-strong); background: var(--ink-2); color: var(--paper);
-  font-weight: 600; font-size: var(--step--1); text-decoration: none; cursor: pointer;
+  font-weight: 600; font-size: var(--step--1); text-decoration: none; cursor: pointer; white-space: nowrap;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 .btn:hover:not(:disabled) { background: var(--ink-3); border-color: var(--muted); }
@@ -182,7 +182,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.toasts { position: fixed; z-index: 80; right: 16px; bottom: 16px; display: grid; gap: 0.5rem; width: min(380px, calc(100vw - 32px)); }
+.toasts { position: fixed; z-index: 80; left: 50%; bottom: 18px; transform: translateX(-50%); display: grid; gap: 0.5rem; width: min(440px, calc(100vw - 32px)); }
 .toast { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 12px; background: var(--ink-3); border: 1px solid var(--line-strong); box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.9); font-size: var(--step--1); animation: toast-in 0.22s ease-out; }
 .toast.ok svg { color: var(--ok); }
 .toast.error svg { color: var(--delete); }
