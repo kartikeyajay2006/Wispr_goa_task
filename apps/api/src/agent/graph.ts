@@ -56,7 +56,7 @@ Gather the evidence the operator's goal needs, using the read-only tools. They c
 - Call tools rather than guessing: footprint in both systems, dependencies (look for rows owned by OTHER customers that point at this customer's data), and a rescan for what personal data is still present. Use preview_deletion or the retention policy only when they answer something specific.
 - Run independent tools in parallel.
 - You cannot delete, approve, or open requests. After you finish, the workflow rehearses the plan in a sandbox, takes a verified backup, and waits for a person to approve the exact plan.
-- When you have enough, stop calling tools and reply with 3 to 6 short findings, one per line, each starting with "- ". Name tables, counts and customer IDs. No preamble.`;
+- When you have enough, stop calling tools and reply with 3 to 6 short findings, one per line, each starting with "- ". Name tables, counts and customer IDs. Plain text: no markdown, bold or code formatting. No preamble.`;
 
 const ASSESSMENT_SCHEMA = {type: 'object', additionalProperties: false, required: ['risk', 'blockers', 'notes'], properties: {
   risk: {type: 'string', enum: ['low', 'medium', 'high'], description: 'Risk of erasing this customer now'},
@@ -73,7 +73,8 @@ const BRIEFING_SCHEMA = {type: 'object', additionalProperties: false, required: 
   nextStep: {type: 'string', description: 'The one thing the operator should do next, in the console\'s words'},
 }} as const;
 const BriefingSchema = z.object({headline: z.string(), summary: z.string(), findings: z.array(z.string()), risks: z.array(z.string()), nextStep: z.string()});
-const REPORTER_PROMPT = 'You are the reporter agent in EraseOps. Write a short briefing for the human operator from the run record you are given. Use only facts present in the record; never invent counts or customers. Plain sentences, no markdown. If a request is waiting for approval, the next step is to review the plan and type the customer ID to approve it.';
+const REPORTER_PROMPT = 'You are the reporter agent in EraseOps. Write a short briefing for the human operator, a privacy professional, from the run record you are given. Use only facts present in the record; never invent counts or customers. Plain sentences, no markdown. Name customers by ID (and first name when known); never quote request UUIDs or internal field names such as dryRun. If a request is waiting for approval, the next step is to review the plan and type the customer ID to approve it. If the erasure completed, the next step is to open the certificate of erasure. If a safety gate blocked the plan or the investigation found a blocker, the next step says exactly what to resolve, naming the resource and the customers involved.';
+const RISK_PROMPT = 'You are the risk agent in EraseOps. Judge how risky it is to erase this customer now, from the evidence only. A blocker is something that must stop the erasure until a person resolves it, such as rows owned by other customers; records the policy redacts or retains are notes, not blockers. knownBlockers and knownNotes are already shown to the approver: return only blockers and notes they do not cover, one short plain sentence each, no markdown.';
 
 /* ---------------- Helpers ---------------- */
 const emit = (config: LangGraphRunnableConfig, event: AgentEvent) => config.writer?.(event);
@@ -202,7 +203,7 @@ export function buildErasureGraph(deps: AgentDeps) {
       let assessment = facts;
       if (engine.kind === 'claude') {
         try {
-          const message = await callClaude(engine, {max_tokens: 4096, output_config: {effort: 'low', format: {type: 'json_schema', schema: ASSESSMENT_SCHEMA as unknown as Record<string, unknown>}}, system: 'You are the risk agent in EraseOps. Judge how risky it is to erase this customer now, from the evidence only.', messages: [{role: 'user', content: JSON.stringify({goal: state.goal, customerId: state.customerId, findings: state.findings, evidence: state.evidence.map(({tool, summary, data}) => ({tool, summary, data})).slice(0, 12), knownBlockers: facts.blockers})}]});
+          const message = await callClaude(engine, {max_tokens: 4096, output_config: {effort: 'low', format: {type: 'json_schema', schema: ASSESSMENT_SCHEMA as unknown as Record<string, unknown>}}, system: RISK_PROMPT, messages: [{role: 'user', content: JSON.stringify({goal: state.goal, customerId: state.customerId, findings: state.findings, evidence: state.evidence.map(({tool, summary, data}) => ({tool, summary, data})).slice(0, 12), knownBlockers: facts.blockers, knownNotes: facts.notes})}]});
           const judged = parseStructured(message, AssessmentSchema);
           // Known blockers always survive, and a model can raise risk but never lower it below the facts.
           const order = ['low', 'medium', 'high'] as const;
@@ -284,7 +285,7 @@ export function buildErasureGraph(deps: AgentDeps) {
 }
 
 /* ---------------- Runs ---------------- */
-export type RunRecord = {threadId: string; goal: string; operator: string; startedAt: string; updatedAt: string; status: RunStatus; engine: 'claude' | 'rules'; customerId?: string; requestId?: string; headline?: string; approval?: ApprovalRequest};
+export type RunRecord = {threadId: string; goal: string; operator: string; startedAt: string; updatedAt: string; status: RunStatus; engine: 'claude' | 'rules'; model?: string; customerId?: string; requestId?: string; headline?: string; approval?: ApprovalRequest};
 
 /** Owns the compiled graph and its checkpoints; one thread per agent run. */
 export class ErasureAgent {
@@ -301,7 +302,7 @@ export class ErasureAgent {
     const threadId = randomUUID();
     const now = new Date().toISOString();
     const engine = this.deps.engine;
-    this.runs.set(threadId, {threadId, goal, operator, startedAt: now, updatedAt: now, status: 'running', engine: engine.kind});
+    this.runs.set(threadId, {threadId, goal, operator, startedAt: now, updatedAt: now, status: 'running', engine: engine.kind, model: engine.kind === 'claude' ? engine.model : undefined});
     const first: AgentEvent = {type: 'run', threadId, goal, engine: engine.kind, model: engine.kind === 'claude' ? engine.model : undefined, note: engine.kind === 'rules' ? engine.reason : undefined};
     return {threadId, events: this.drive(threadId, {goal, operator}, first)};
   }

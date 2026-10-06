@@ -63,6 +63,6 @@ describe('Claude command reading', () => {
 
   it('runs on rules without credentials and says why', async () => {
     const result = await interpretCommand(createAiEngine({mode: 'auto', model: 'm'}, {}), "wipe Mira's data", customers);
-    expect(result).toMatchObject({engine: 'rules', note: 'Set ANTHROPIC_API_KEY to let Claude run the agents'});
+    expect(result).toMatchObject({engine: 'rules', note: 'Set OPENAI_API_KEY to let OpenAI run the agents'});
   });
 });

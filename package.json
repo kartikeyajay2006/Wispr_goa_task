@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "ERASEROPS_START_SERVER=true tsx watch apps/api/src/server.ts",
+    "dev:api": "ERASEROPS_START_SERVER=true tsx watch --env-file-if-exists=.env apps/api/src/server.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
     "dev:mcp": "ERASEROPS_MCP_STDIO=true tsx apps/mcp-server/src/stdio.ts",
     "seed:local": "tsx scripts/seed-local.ts",
@@ -36,6 +36,7 @@
     "cors": "^2.8.5",
     "express": "^5.0.0",
     "lucide-react": "^1.52.0",
+    "openai": "^7.28.0",
     "pg": "^8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

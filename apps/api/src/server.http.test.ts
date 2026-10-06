@@ -155,7 +155,7 @@ describe('HTTP read models', () => {
 describe('HTTP assistant', () => {
   it('reports which engine reads commands', async () => {
     const {body} = await call('GET', '/api/assistant/status');
-    expect(body).toEqual({engine: 'rules', reason: 'Set ANTHROPIC_API_KEY to let Claude run the agents'});
+    expect(body).toEqual({engine: 'rules', reason: 'Set OPENAI_API_KEY to let OpenAI run the agents'});
   });
   it('reads natural commands against the live customer list', async () => {
     const {status, body} = await call('POST', '/api/assistant/interpret', {text: "can you wipe Mira's data?"});
