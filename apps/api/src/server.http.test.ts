@@ -149,3 +149,16 @@ describe('HTTP read models', () => {
     expect((await call('GET', '/api/requests/00000000-0000-4000-8000-000000000000')).body.error).toContain('not found');
   });
 });
+
+describe('HTTP assistant', () => {
+  it('reports which engine reads commands', async () => {
+    const {body} = await call('GET', '/api/assistant/status');
+    expect(body).toEqual({engine: 'rules', reason: 'Set ANTHROPIC_API_KEY to let Claude run the agents'});
+  });
+  it('reads natural commands against the live customer list', async () => {
+    const {status, body} = await call('POST', '/api/assistant/interpret', {text: "can you wipe Mira's data?"});
+    expect(status).toBe(200);
+    expect(body).toMatchObject({engine: 'rules', intent: {action: 'erase', customerId: 'CUST-1042', readback: 'Open an erasure request for CUST-1042 (Mira K.)'}});
+  });
+  it('rejects empty commands', async () => expect((await call('POST', '/api/assistant/interpret', {text: '  '})).status).toBe(400));
+});

@@ -15,6 +15,8 @@ import {DestructiveRequestGuard} from './destructive-guard.js';
 import {loadConfig, loadEnvFile} from './config.js';
 import {HttpError, WorkflowService} from './workflow-service.js';
 import {auditLog, describePolicies, listCustomers, listRequests, listSystems, overview} from './read-models.js';
+import {createAiEngine} from './agent/claude.js';
+import {interpretCommand} from './agent/interpret.js';
 
 if (process.env.ERASEROPS_START_SERVER === 'true') loadEnvFile();
 const runtimeConfig = loadConfig(process.env);
@@ -46,6 +48,8 @@ const operator = (req: express.Request) => req.header('x-operator-identity') ?? 
 const id = (req: express.Request) => String(req.params.id);
 
 const readDeps = {postgres, minio, store, context: ctx, config: runtimeConfig};
+export const aiEngine = createAiEngine(runtimeConfig.ai, process.env);
+const aiStatus = () => aiEngine.kind === 'claude' ? {engine: 'claude', model: aiEngine.model} : {engine: 'rules', reason: aiEngine.reason};
 
 app.get('/health', (_req, res) => res.json({ok: true, mode: runtimeConfig.connectorMode, allowlist: runtimeConfig.allowlistedSystems}));
 app.get('/api/overview', route(() => overview(readDeps)));
@@ -54,6 +58,14 @@ app.get('/api/systems', route(() => listSystems(readDeps)));
 app.get('/api/policies', route(() => describePolicies(readDeps)));
 app.get('/api/audit', route(req => auditLog(readDeps, Math.min(Number(req.query.limit) || 200, 1000))));
 app.get('/api/requests', route(() => listRequests(readDeps)));
+app.get('/api/assistant/status', (_req, res) => res.json(aiStatus()));
+app.post('/api/assistant/interpret', route(async req => {
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text || text.length > 500) throw new HttpError(400, 'Send the command as "text" (1 to 500 characters)');
+  const customers = (await listCustomers(readDeps)).map(({customerId, displayName, region}) => ({customerId, displayName, region}));
+  const current = typeof req.body?.requestId === 'string' ? store.get(req.body.requestId) : undefined;
+  return interpretCommand(aiEngine, text, customers, current && {requestId: current.requestId, customerId: current.customerId, state: current.state});
+}));
 app.post('/api/requests', route(async (req, res) => { res.status(201); return workflows.create(req.body, operator(req)); }));
 app.get('/api/requests/:id', route(req => workflows.get(id(req))));
 app.post('/api/requests/:id/approve', route(req => workflows.approve(id(req), req.body, operator(req))));

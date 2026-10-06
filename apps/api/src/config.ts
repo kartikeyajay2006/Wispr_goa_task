@@ -20,6 +20,8 @@ const configSchema = z.object({
   MINIO_ENDPOINT: z.string().url().default('http://localhost:9000'),
   MINIO_ACCESS_KEY: z.string().default('eraseops'),
   MINIO_SECRET_KEY: z.string().default('eraseops_local_only'),
+  ERASEOPS_AI: z.enum(['auto', 'claude', 'off']).default('auto'),
+  ERASEOPS_MODEL: z.string().default('claude-opus-5-5'),
 });
 
 export type EraserOpsConfig = {
@@ -36,6 +38,7 @@ export type EraserOpsConfig = {
   datasetFile?: string;
   databaseUrl: string;
   minio: {endpoint: string; accessKey: string; secretKey: string};
+  ai: {mode: 'auto' | 'claude' | 'off'; model: string};
 };
 
 /** Loads `.env` from the working directory when present; real environment variables always win. */
@@ -60,5 +63,6 @@ export function loadConfig(env: Record<string, string | undefined>): EraserOpsCo
     datasetFile: parsed.ERASEOPS_DATASET_FILE,
     databaseUrl: parsed.DATABASE_URL,
     minio: {endpoint: parsed.MINIO_ENDPOINT, accessKey: parsed.MINIO_ACCESS_KEY, secretKey: parsed.MINIO_SECRET_KEY},
+    ai: {mode: parsed.ERASEOPS_AI, model: parsed.ERASEOPS_MODEL},
   };
 }
