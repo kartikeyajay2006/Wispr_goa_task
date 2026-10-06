@@ -117,7 +117,7 @@ export default function AgentPage() {
     </div>
 
     <form className={`panel agent-composer ${running ? 'running' : ''}`} onSubmit={submit}>
-      <Bot size={20} className="dot-uv" />
+      <Bot size={20} className="dot-accent" />
       <input className="agent-input" value={goal} onChange={event => setGoal(event.target.value)} placeholder={examples[0] ? `Try: ${examples[0]}` : 'Describe the erasure or question'} aria-label="What should the agent do?" maxLength={500} />
       {speech.supported && <button type="button" className={`btn icon-btn mic ${speech.listening ? 'listening' : ''}`} aria-pressed={speech.listening} aria-label={speech.listening ? 'Stop listening' : 'Dictate'} onClick={speech.toggle}>{speech.listening ? <MicOff size={16} /> : <Mic size={16} />}</button>}
       <button className="btn btn-primary" aria-label="Run agents" disabled={running || !goal.trim()}>{running ? <Loader2 size={16} className="spin" /> : <Play size={16} />}<span className="run-label">Run agents</span></button>
@@ -127,7 +127,7 @@ export default function AgentPage() {
 
     {events.length > 0 && <div className="agent-grid">
       <section className="panel agent-graph" aria-label="Agent graph">
-        <div className="panel-head"><div><h3>Agent graph</h3><p>{run ? (run.engine === 'claude' ? `Claude ${run.model}` : 'Rule-based engine') : ''}</p></div>{running && <Loader2 size={16} className="spin dot-uv" />}</div>
+        <div className="panel-head"><div><h3>Agent graph</h3><p>{run ? (run.engine === 'claude' ? `Claude ${run.model}` : 'Rule-based engine') : ''}</p></div>{running && <Loader2 size={16} className="spin dot-accent" />}</div>
         <ol className="stage-flow">{STAGES.map(stage => {
           const value = stages[stage.key];
           return <li key={stage.key} className={`agent-stage ${value}`}>
@@ -166,7 +166,7 @@ function Feed({events}: {events: AgentEvent[]}) {
   return <>{events.map((event, index) => {
     switch (event.type) {
       case 'node': if (event.status === 'start') labels[event.node] = event.label; return event.status === 'start' ? <div key={index} className="feed-node"><span />{event.label}</div> : null;
-      case 'intent': return <div key={index} className="feed-card"><div className="row"><Sparkles size={15} className="dot-uv" /><strong>{event.intent.readback}</strong><span className="spacer" /><span className="engine-tag">{event.engine === 'claude' ? 'Claude' : 'Rules'}</span></div>{event.intent.candidates.length > 0 && <p className="small dim">Candidates: {event.intent.candidates.join(', ')}</p>}</div>;
+      case 'intent': return <div key={index} className="feed-card"><div className="row"><Sparkles size={15} className="dot-accent" /><strong>{event.intent.readback}</strong><span className="spacer" /><span className="engine-tag">{event.engine === 'claude' ? 'Claude' : 'Rules'}</span></div>{event.intent.candidates.length > 0 && <p className="small dim">Candidates: {event.intent.candidates.join(', ')}</p>}</div>;
       case 'reasoning': return <blockquote key={index} className="feed-reasoning"><Brain size={13} />{event.text}</blockquote>;
       case 'tool': {
         if (event.status === 'end') return null;
@@ -175,7 +175,7 @@ function Feed({events}: {events: AgentEvent[]}) {
       }
       case 'assessment': return <div key={index} className={`feed-card risk-${event.assessment.risk}`}><div className="row"><strong>Risk: {event.assessment.risk}</strong></div>{event.assessment.blockers.map(blocker => <p key={blocker} className="small" style={{color: 'var(--delete)'}}>⛔ {blocker}</p>)}{event.assessment.notes.map(note => <p key={note} className="small dim">{note}</p>)}</div>;
       case 'request': return <div key={index} className="feed-card"><div className="row"><StatePill state={event.state} dryRun={event.dryRun} /><span className="id">{event.customerId}</span><span className="spacer" /><Link className="btn btn-ghost" to={`/console/requests/${event.requestId}`}>Open request <ArrowRight size={14} /></Link></div>{event.blockedBy && <p className="small" style={{color: 'var(--delete)'}}>{event.blockedBy}</p>}</div>;
-      case 'briefing': return <article key={index} className="feed-briefing"><div className="row"><Bot size={16} className="dot-uv" /><h4>{event.briefing.headline}</h4><span className="spacer" /><span className="engine-tag">{event.engine === 'claude' ? 'Written by Claude' : 'Rule-based briefing'}</span></div><p>{event.briefing.summary}</p>{event.briefing.findings.length > 0 && <ul>{event.briefing.findings.map(finding => <li key={finding}>{finding}</li>)}</ul>}{event.briefing.risks.length > 0 && <ul className="risks">{event.briefing.risks.map(risk => <li key={risk}>{risk}</li>)}</ul>}<p className="next"><ArrowRight size={14} />{event.briefing.nextStep}</p></article>;
+      case 'briefing': return <article key={index} className="feed-briefing"><div className="row"><Bot size={16} className="dot-accent" /><h4>{event.briefing.headline}</h4><span className="spacer" /><span className="engine-tag">{event.engine === 'claude' ? 'Written by Claude' : 'Rule-based briefing'}</span></div><p>{event.briefing.summary}</p>{event.briefing.findings.length > 0 && <ul>{event.briefing.findings.map(finding => <li key={finding}>{finding}</li>)}</ul>}{event.briefing.risks.length > 0 && <ul className="risks">{event.briefing.risks.map(risk => <li key={risk}>{risk}</li>)}</ul>}<p className="next"><ArrowRight size={14} />{event.briefing.nextStep}</p></article>;
       case 'error': return <div key={index} className="notice error"><AlertTriangle size={15} />{event.message}</div>;
       default: return null;
     }

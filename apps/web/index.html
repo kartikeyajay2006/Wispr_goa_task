@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0c1024" />
+    <meta name="theme-color" content="#0d0c0a" />
+    <script>
+      // Apply the saved theme before first paint so the page never flashes the wrong paper.
+      try { var saved = localStorage.getItem('eraseops.theme'); document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark'; if (saved === 'light') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f3ecdd'); } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+    </script>
     <meta name="description" content="EraseOps finds a customer's personal data across systems, rehearses the deletion, waits for human approval of the exact plan, and proves the data is gone." />
     <title>EraseOps</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

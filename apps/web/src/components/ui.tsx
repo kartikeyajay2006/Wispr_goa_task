@@ -88,11 +88,12 @@ export function Toasts() {
 /* ---------- Brand ---------- */
 export function LogoMark({size = 28}: {size?: number}) {
   return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <rect x="1" y="1" width="30" height="30" rx="9" fill="#121836" stroke="#36407a" />
-    <rect x="7" y="9" width="18" height="3.2" rx="1.6" fill="#e8eaf6" />
-    <rect x="7" y="14.4" width="18" height="3.2" rx="1" fill="#05060f" stroke="#9b7bff" strokeWidth=".8" />
-    <rect x="7" y="19.8" width="11" height="3.2" rx="1.6" fill="#e8eaf6" opacity=".55" />
-    <circle cx="23.5" cy="21.4" r="2.6" fill="#9b7bff" />
+    <defs><linearGradient id="logo-foil" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f6dfa0" /><stop offset=".5" stopColor="#c99a45" /><stop offset="1" stopColor="#f3d58f" /></linearGradient></defs>
+    <rect x="1" y="1" width="30" height="30" rx="9" style={{fill: 'var(--surface-2)'}} stroke="url(#logo-foil)" />
+    <rect x="7" y="9" width="18" height="3.2" rx="1.6" style={{fill: 'var(--text)'}} />
+    <rect x="7" y="14.4" width="18" height="3.2" rx="1" style={{fill: 'var(--ink-black)', stroke: 'var(--accent)'}} strokeWidth=".8" />
+    <rect x="7" y="19.8" width="11" height="3.2" rx="1.6" style={{fill: 'var(--text)'}} opacity=".55" />
+    <circle cx="23.5" cy="21.4" r="2.6" fill="url(#logo-foil)" />
   </svg>;
 }
 export function Logo() { return <span className="logo"><LogoMark /><span>EraseOps</span></span>; }
@@ -119,8 +120,9 @@ export function Dot({tone}: {tone: 'ok' | 'warn' | 'bad' | 'uv'}) { return <Circ
 export function Avatar({name, size = 30}: {name?: string; size?: number}) {
   if (!name) return <span className="avatar erased" style={{width: size, height: size}} aria-label="Name erased" />;
   const initials = name.replace(/\./g, '').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
-  const hue = [...name].reduce((total, char) => total + char.charCodeAt(0), 0) % 360;
-  return <span className="avatar" aria-hidden="true" style={{width: size, height: size, background: `linear-gradient(140deg, hsl(${hue} 70% 62%), hsl(${(hue + 50) % 360} 65% 45%))`}}>{initials}</span>;
+  // Warm hues only (copper through gold to olive), so avatars sit inside the palette.
+  const hue = 18 + ([...name].reduce((total, char) => total + char.charCodeAt(0), 0) % 42);
+  return <span className="avatar" aria-hidden="true" style={{width: size, height: size, background: `linear-gradient(140deg, hsl(${hue} 72% 72%), hsl(${hue + 8} 55% 46%))`}}>{initials}</span>;
 }
 
 /** A progress ring that animates its arc when the value changes. */
@@ -130,6 +132,6 @@ export function Ring({value, total, size = 46}: {value: number; total: number; s
   const fraction = total > 0 ? Math.min(1, value / total) : 0;
   return <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
     <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--line)" strokeWidth="4" />
-    <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--uv)" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fraction)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+    <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fraction)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
   </svg>;
 }

@@ -8,6 +8,7 @@ import {CommandPalette} from '../components/CommandPalette';
 import {speechSupported} from '../components/speech';
 import {Logo, toast} from '../components/ui';
 import {OperatorField} from '../components/OperatorField';
+import {ThemeToggle} from '../components/ThemeToggle';
 
 const NAV = [
   {to: '/console', label: 'Overview', icon: LayoutDashboard, end: true},
@@ -71,6 +72,7 @@ export default function ConsoleLayout() {
           </button>
           {identityOpen && <div className="who-popover panel" role="dialog" aria-label="Who is acting"><OperatorField label="Acting as" autoFocus /><button type="button" className="btn btn-ghost" onClick={() => setIdentityOpen(false)}>Done</button></div>}
         </div>
+        <ThemeToggle />
       </header>
       <nav className="mobile-nav" aria-label="Console navigation">{NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className={({isActive}) => isActive ? 'active' : ''}>{item.label}{item.badge && pending > 0 ? ` (${pending})` : ''}</NavLink>)}</nav>
       {health.isError && <div className="page" style={{paddingBottom: 0}}><div className="notice error" role="alert">The API is not reachable. Start it with <code>npm run dev</code>; this page reconnects on its own.</div></div>}

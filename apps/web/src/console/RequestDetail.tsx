@@ -104,7 +104,7 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
 
   return <aside className="rail">
     <section className="panel panel-pad stack">
-      <div className="row"><ShieldCheck size={20} className="dot-uv" /><h3 style={{fontSize: 'var(--step-1)'}}>Safety gates</h3></div>
+      <div className="row"><ShieldCheck size={20} className="dot-accent" /><h3 style={{fontSize: 'var(--step-1)'}}>Safety gates</h3></div>
       <div className="gate-list">{gates.map(([label, state, note]) => <div key={label} className={`gate ${state}`}><span className="mark">{state === 'pass' ? <Check size={13} /> : state === 'fail' ? <X size={13} /> : <span>·</span>}</span><span>{label}</span><small>{note}</small></div>)}</div>
     </section>
 
@@ -211,7 +211,7 @@ function DependenciesTab({workflow}: {workflow: Workflow}) {
   return <div className="stack">
     {shared.length ? <div className="notice error"><ShieldAlert size={16} /><div>{shared.map(dependency => <div key={dependency.source}>{dependency.relationshipType}</div>)}</div></div> : <div className="notice ok"><ShieldCheck size={16} />No other customer's records point at this footprint.</div>}
     <Suspense fallback={<div className="skeleton" style={{height: 460}} />}><DependencyGraph workflow={workflow} /></Suspense>
-    <div className="legend"><span><i style={{background: 'var(--delete)'}} />Shared with another customer</span><span><i style={{background: 'var(--retain)'}} />Retention hold</span><span><i style={{background: '#4a5590'}} />Foreign key</span></div>
+    <div className="legend"><span><i style={{background: 'var(--delete)'}} />Shared with another customer</span><span><i style={{background: 'var(--retain)'}} />Retention hold</span><span><i style={{background: 'var(--line-strong)'}} />Foreign key</span></div>
     {holds.length > 0 && <div className="stack" style={{gap: '0.3rem'}}><h4>Retention holds</h4>{holds.map(hold => <div className="check warn" key={hold.source}><LockKeyhole size={14} /><span><code>{hold.source.split(':')[1]}</code> {hold.relationshipType}</span></div>)}</div>}
   </div>;
 }

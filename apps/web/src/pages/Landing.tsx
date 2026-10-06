@@ -5,8 +5,9 @@ import {useQuery} from '@tanstack/react-query';
 import {ArrowRight, Bot, Database, FileCheck2, Fingerprint, HardDrive, LockKeyhole, Menu, RefreshCw, ScanLine, ShieldCheck, Stamp, Terminal, X} from 'lucide-react';
 import {api} from '../api';
 import {RecordSphere} from '../components/RecordSphere';
-import {ActionChip, Avatar, ErrorNotice, FootprintBar, Legend, Logo, StatePill, plural} from '../components/ui';
+import {ActionChip, Avatar, ErrorNotice, FootprintBar, Guilloche, Legend, Logo, StatePill, plural} from '../components/ui';
 import {CountUp} from '../components/motion';
+import {ThemeToggle} from '../components/ThemeToggle';
 import type {CSSProperties} from 'react';
 
 const order = (i: number, extra: Record<string, string> = {}) => ({'--i': i, ...extra}) as CSSProperties;
@@ -44,6 +45,7 @@ export default function Landing() {
         <a href="#policy" onClick={close}>Retention policy</a>
       </nav>
       <div className="l-nav-actions">
+        <ThemeToggle />
         <Link className="btn btn-primary" to="/console"><Terminal size={15} />Open console</Link>
         <button type="button" className="btn btn-ghost icon-btn l-menu" aria-expanded={menuOpen} aria-label="Toggle navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={18} /> : <Menu size={18} />}</button>
       </div>
@@ -67,6 +69,7 @@ export default function Landing() {
             </dl>}
         </div>
         <figure className="l-sphere">
+          <Guilloche className="hero-rosette" size={640} strokes={26} />
           {customers.data ? <RecordSphere counts={totals} label={`Live records by policy: ${totals.delete} to delete, ${totals.redact} to redact, ${totals.retain} retained`} /> : <div className="l-sphere-placeholder" />}
           <figcaption>
             <span className="dim">Every live record, colored by what policy does with it</span>

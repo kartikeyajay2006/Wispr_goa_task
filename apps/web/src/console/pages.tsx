@@ -168,7 +168,7 @@ export function Systems() {
         <div className="panel-pad stack" style={{gap: '0.6rem'}}>
           {system.inventory.map(entry => <div key={entry.resource} style={{display: 'grid', gridTemplateColumns: 'minmax(120px, 0.9fr) 1.4fr 48px', gap: '0.75rem', alignItems: 'center'}} className="small">
             <code className="dim">{entry.resource}</code>
-            <div className="footbar" aria-hidden="true"><i style={{width: `${(entry.records / max) * 100}%`, background: entry.resource === 'eraseops-backups' ? 'var(--muted)' : 'var(--uv)'}} /></div>
+            <div className="footbar" aria-hidden="true"><i style={{width: `${(entry.records / max) * 100}%`, background: entry.resource === 'eraseops-backups' ? 'var(--muted)' : 'var(--accent)'}} /></div>
             <span className="num" style={{textAlign: 'right'}}>{entry.records}</span>
           </div>)}
           <p className="small muted">Capabilities: {system.capabilities.join(', ')}</p>
@@ -191,7 +191,7 @@ export function Policies() {
       <div className="kpi"><span>Allowlisted buckets</span><strong>{data.controls.allowlistedBuckets.length}</strong><small>{data.controls.allowlistedBuckets.join(', ')}</small></div>
     </div>}
     <section className="panel">
-      <div className="panel-head"><div><h3>Safety gates</h3><p>In the order a request meets them</p></div><ShieldCheck size={18} className="dot-uv" /></div>
+      <div className="panel-head"><div><h3>Safety gates</h3><p>In the order a request meets them</p></div><ShieldCheck size={18} className="dot-accent" /></div>
       <div className="panel-pad stack">{data?.gates.map((gate, index) => <div key={gate.id} className="check pass" style={{gridTemplateColumns: '28px 1fr'}}><span className="mono muted">{index + 1}</span><div><strong>{gate.title}</strong><p className="dim small">{gate.rule}</p></div></div>)}</div>
     </section>
     <section className="panel table-wrap" tabIndex={0}>

@@ -1,11 +1,11 @@
 import {useEffect, useRef} from 'react';
+import {rgbOf, themeColor, useTheme} from '../theme';
 
 type Kind = 'delete' | 'redact' | 'retain';
 type Point = {x: number; y: number; z: number; kind: Kind; seed: number};
 export type SphereCounts = {delete: number; redact: number; retain: number};
 
-const COLORS: Record<Kind, [number, number, number]> = {delete: [255, 107, 94], redact: [245, 196, 81], retain: [111, 168, 255]};
-const UV: [number, number, number] = [155, 123, 255];
+type RGB = [number, number, number];
 const POINTS = 900;
 const CYCLE = 9000;
 
@@ -33,6 +33,7 @@ const smooth = (t: number) => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 export function RecordSphere({counts, label}: {counts: SphereCounts; label: string}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tilt = useRef({x: 0, y: 0, tx: 0, ty: 0});
+  const theme = useTheme(state => state.theme);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -40,6 +41,11 @@ export function RecordSphere({counts, label}: {counts: SphereCounts; label: stri
     const context = canvas.getContext('2d');
     if (!context) return;
     const points = buildPoints(counts);
+    // Colours come from the active theme: gold for unclassified records, the policy colours once scanned.
+    const COLORS: Record<Kind, RGB> = {delete: rgbOf(themeColor('delete')), redact: rgbOf(themeColor('redact')), retain: rgbOf(themeColor('retain'))};
+    const UV: RGB = rgbOf(themeColor('accent'));
+    const BRIGHT: RGB = rgbOf(themeColor('accent-strong'));
+    const rgba = ([r, g, b]: RGB, alpha: number) => `rgba(${r},${g},${b},${alpha})`;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let width = 0, height = 0, frame = 0, visible = true;
     const start = performance.now();
@@ -67,9 +73,9 @@ export function RecordSphere({counts, label}: {counts: SphereCounts; label: stri
 
       context.clearRect(0, 0, width, height);
       const halo = context.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius * 1.45);
-      halo.addColorStop(0, 'rgba(155,123,255,0.20)');
-      halo.addColorStop(0.55, 'rgba(155,123,255,0.06)');
-      halo.addColorStop(1, 'rgba(155,123,255,0)');
+      halo.addColorStop(0, rgba(UV, 0.2));
+      halo.addColorStop(0.55, rgba(UV, 0.06));
+      halo.addColorStop(1, rgba(UV, 0));
       context.fillStyle = halo;
       context.fillRect(0, 0, width, height);
 
@@ -105,14 +111,14 @@ export function RecordSphere({counts, label}: {counts: SphereCounts; label: stri
       if (cycle > 0.15 && cycle < 0.6) {
         const sy = cy + sweep * radius;
         const line = context.createLinearGradient(cx - radius * 1.3, 0, cx + radius * 1.3, 0);
-        line.addColorStop(0, 'rgba(185,163,255,0)');
-        line.addColorStop(0.5, 'rgba(185,163,255,0.85)');
-        line.addColorStop(1, 'rgba(185,163,255,0)');
+        line.addColorStop(0, rgba(BRIGHT, 0));
+        line.addColorStop(0.5, rgba(BRIGHT, 0.85));
+        line.addColorStop(1, rgba(BRIGHT, 0));
         context.fillStyle = line;
         context.fillRect(cx - radius * 1.3, sy, radius * 2.6, 1.5);
         const wash = context.createLinearGradient(0, sy - 40, 0, sy);
-        wash.addColorStop(0, 'rgba(155,123,255,0)');
-        wash.addColorStop(1, 'rgba(155,123,255,0.10)');
+        wash.addColorStop(0, rgba(UV, 0));
+        wash.addColorStop(1, rgba(UV, 0.1));
         context.fillStyle = wash;
         context.fillRect(cx - radius * 1.3, sy - 40, radius * 2.6, 40);
       }
@@ -138,7 +144,7 @@ export function RecordSphere({counts, label}: {counts: SphereCounts; label: stri
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerleave', onLeave);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); intersection.disconnect(); canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerleave', onLeave); };
-  }, [counts.delete, counts.redact, counts.retain]);
+  }, [counts.delete, counts.redact, counts.retain, theme]);
 
   return <canvas ref={canvasRef} className="record-sphere" role="img" aria-label={label} />;
 }
