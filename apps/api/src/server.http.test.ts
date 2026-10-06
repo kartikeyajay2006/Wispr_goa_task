@@ -162,3 +162,39 @@ describe('HTTP assistant', () => {
   });
   it('rejects empty commands', async () => expect((await call('POST', '/api/assistant/interpret', {text: '  '})).status).toBe(400));
 });
+
+describe('HTTP agent (server-sent events)', () => {
+  const stream = async (path: string, body: unknown, headers: Record<string, string> = operator) => {
+    const response = await fetch(`${base}${path}`, {method: 'POST', headers, body: JSON.stringify(body)});
+    const text = await response.text();
+    return {status: response.status, type: response.headers.get('content-type'), events: text.split('\n\n').filter(chunk => chunk.startsWith('data: ')).map(chunk => JSON.parse(chunk.slice(6))), text};
+  };
+
+  it('streams a run to the human checkpoint and resumes it to a verified erasure', async () => {
+    const first = await stream('/api/agent/runs', {goal: "wipe Mira's data"});
+    expect(first.type).toContain('text/event-stream');
+    const run = first.events[0];
+    expect(run).toMatchObject({type: 'run', engine: 'rules'});
+    const approval = first.events.find((event: any) => event.type === 'approval').approval;
+    expect(first.events.at(-1)).toMatchObject({type: 'done', status: 'awaiting_approval'});
+    expect((await call('GET', '/api/agent/runs')).body[0]).toMatchObject({threadId: run.threadId, status: 'awaiting_approval', customerId: 'CUST-1042'});
+    expect((await call('GET', `/api/requests/${approval.requestId}`)).body.request.requestedBy).toBe('test-operator via agent');
+
+    expect((await stream(`/api/agent/runs/${run.threadId}/resume`, {decision: 'approve', confirmation: 'CUST-9999'})).status).toBe(400);
+    expect((await stream(`/api/agent/runs/${run.threadId}/resume`, {decision: 'approve', confirmation: 'CUST-1042'}, {'content-type': 'application/json'})).status).toBe(401);
+    // A separate approver: the destructive rate limit is per operator, and earlier tests already executed as test-operator.
+    const approver = {'content-type': 'application/json', 'x-operator-identity': 'agent-approver'};
+    const second = await stream(`/api/agent/runs/${run.threadId}/resume`, {decision: 'approve', confirmation: 'CUST-1042'}, approver);
+    expect(second.events.find((event: any) => event.type === 'briefing').briefing.headline).toBe('CUST-1042 erased and verified');
+    expect((await call('GET', `/api/requests/${approval.requestId}`)).body).toMatchObject({state: 'COMPLETED', approval: {approvedBy: 'agent-approver'}});
+    expect((await stream(`/api/agent/runs/${run.threadId}/resume`, {decision: 'approve', confirmation: 'CUST-1042'})).status).toBe(409);
+  });
+
+  it('validates goals and forgets runs on reset', async () => {
+    expect((await stream('/api/agent/runs', {goal: ''})).status).toBe(400);
+    await stream('/api/agent/runs', {goal: 'what data do we hold on customer 4410?'});
+    expect((await call('GET', '/api/agent/runs')).body).toHaveLength(1);
+    await call('POST', '/api/demo/reset');
+    expect((await call('GET', '/api/agent/runs')).body).toHaveLength(0);
+  });
+});

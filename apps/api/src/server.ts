@@ -17,6 +17,7 @@ import {HttpError, WorkflowService} from './workflow-service.js';
 import {auditLog, describePolicies, listCustomers, listRequests, listSystems, overview} from './read-models.js';
 import {createAiEngine} from './agent/claude.js';
 import {interpretCommand} from './agent/interpret.js';
+import {ErasureAgent, type AgentEvent} from './agent/graph.js';
 
 if (process.env.ERASEROPS_START_SERVER === 'true') loadEnvFile();
 const runtimeConfig = loadConfig(process.env);
@@ -49,6 +50,7 @@ const id = (req: express.Request) => String(req.params.id);
 
 const readDeps = {postgres, minio, store, context: ctx, config: runtimeConfig};
 export const aiEngine = createAiEngine(runtimeConfig.ai, process.env);
+export const agent = new ErasureAgent({engine: aiEngine, workflows, tools: {runtime: {postgres, minio}, customers: () => listCustomers(readDeps)}});
 const aiStatus = () => aiEngine.kind === 'claude' ? {engine: 'claude', model: aiEngine.model} : {engine: 'rules', reason: aiEngine.reason};
 
 app.get('/health', (_req, res) => res.json({ok: true, mode: runtimeConfig.connectorMode, allowlist: runtimeConfig.allowlistedSystems}));
@@ -86,8 +88,40 @@ app.get('/api/requests/:id/sandbox', route(req => { const workflow = workflows.g
 app.get('/api/requests/:id/backup', route(req => { const workflow = workflows.get(id(req)); const manifest = workflow.backup as BackupManifest | undefined; if (!manifest) throw new HttpError(404, 'No backup was taken for this request'); return {manifest, verification: verifyBackupManifest(manifest, {requestId: workflow.requestId, customerId: workflow.customerId, planHash: workflow.plan.hash}), checks: workflow.backupChecks ?? [], failures: workflow.backupFailures ?? []}; }));
 app.get('/api/requests/:id/verification', route(async req => { const workflow = workflows.get(id(req)); const results = await Promise.all([postgres.verify(workflow.customerId), minio.verify(workflow.customerId)]); return {requestId: workflow.requestId, customerId: workflow.customerId, checkedAt: new Date().toISOString(), verified: results.every(result => result.verified && result.remainingMatches === 0), results, remainingMatches: results.reduce((total, result) => total + result.remainingMatches, 0)}; }));
 
+/** Streams agent events as server-sent events until the run finishes or pauses for a human. */
+async function streamEvents(res: express.Response, events: AsyncIterable<AgentEvent>) {
+  res.status(200).set({'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no'});
+  res.flushHeaders();
+  // req 'close' fires once the body is read; the response closing is what means the client left.
+  let open = true;
+  res.on('close', () => { open = false; });
+  for await (const event of events) if (open) res.write(`data: ${JSON.stringify(event)}\n\n`);
+  res.end();
+}
+
+app.get('/api/agent/runs', (_req, res) => res.json(agent.list()));
+app.get('/api/agent/runs/:id', route(req => { const record = agent.record(id(req)); if (!record) throw new HttpError(404, 'Agent run not found'); return record; }));
+app.post('/api/agent/runs', async (req, res) => {
+  const goal = typeof req.body?.goal === 'string' ? req.body.goal.trim() : '';
+  if (!goal || goal.length > 500) return res.status(400).json({error: 'Send the goal as "goal" (1 to 500 characters)'});
+  const run = agent.start(goal, operator(req)?.trim() || 'console user');
+  await streamEvents(res, run.events);
+});
+app.post('/api/agent/runs/:id/resume', async (req, res) => {
+  const record = agent.record(id(req));
+  const who = operator(req)?.trim();
+  const action = req.body?.decision;
+  if (!record) return res.status(404).json({error: 'Agent run not found'});
+  if (!who) return res.status(401).json({error: 'Operator identity required: send the x-operator-identity header'});
+  if (record.status !== 'awaiting_approval' || !record.approval) return res.status(409).json({error: `This run is ${record.status.replace('_', ' ')}, not waiting for approval`});
+  if (action !== 'approve' && action !== 'reject') return res.status(400).json({error: 'decision must be "approve" or "reject"'});
+  if (action === 'approve' && req.body?.confirmation !== record.approval.customerId) return res.status(400).json({error: `Type ${record.approval.customerId} to approve destructive execution`});
+  await streamEvents(res, agent.resume(record.threadId, {action, operator: who, confirmation: req.body?.confirmation, reason: typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : undefined}));
+});
+
 const resetDemo = route(async () => {
   await store.clear();
+  agent.reset();
   if (mock) { mock.dataset.reset(); return {ok: true, reset: true, dataset: 'In-memory dataset restored from the fixture'}; }
   const seeded = await seedLocalSystems(pool!, localObjectClient!, loadDatasetFixture(runtimeConfig.datasetFile));
   return {ok: true, reset: true, dataset: `Reseeded ${seeded.rows} PostgreSQL rows and ${seeded.objects} MinIO objects`};
