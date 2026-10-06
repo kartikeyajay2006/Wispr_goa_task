@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" width="100%" alt="EraseOps: an isometric field of customer records. A violet scan plane sweeps across it; deleted records dissolve, redacted ones get a black bar, retained ones stay, and a holographic seal reads Verified erased.">
+  <img src="docs/assets/hero.svg" width="100%" alt="EraseOps: an isometric field of customer records. A gold scan plane sweeps across it; deleted records dissolve, redacted ones get a black bar, retained ones stay, and a gold-foil seal reads Verified erased.">
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ Ask in plain words, or out loud: <i>"can you wipe Mira's data?"</i>. A LangGraph
 <br>
 
 <p align="center">
-  <img src="docs/assets/showcase-3d.webp" width="100%" alt="Three console screens layered in 3D: the overview dashboard, a deletion plan awaiting approval, and a certificate of erasure for CUST-1042.">
+  <img src="docs/assets/showcase-3d.webp" width="100%" alt="Three console screens layered in 3D: the overview and a deletion plan in the onyx theme, and a certificate of erasure for CUST-1042 in the cream theme.">
 </p>
 
 ---
@@ -140,7 +140,7 @@ The demo ships a synthetic dataset, [`infra/fixtures/demo-dataset.json`](infra/f
 <table>
   <tr>
     <td width="50%"><img src="docs/assets/screens/plan.webp" alt="Request workspace for CUST-1042 showing the deletion plan, color-coded by action, and the safety rail with type-to-confirm approval."><br><b>Plan and safety rail.</b> Each action shows its legal basis. Approval unlocks only when every gate is green and the operator types the customer ID.</td>
-    <td width="50%"><img src="docs/assets/screens/certificate.webp" alt="Certificate of erasure with a guilloche rosette and a holographic Verified erased seal."><br><b>Certificate of erasure.</b> Approver, plan hash, execution time, residual count, and audit-chain status. Prints cleanly to PDF.</td>
+    <td width="50%"><img src="docs/assets/screens/certificate.webp" alt="Certificate of erasure with a guilloche rosette and a gold-foil Verified erased seal."><br><b>Certificate of erasure.</b> Approver, plan hash, execution time, residual count, and audit-chain status. Prints cleanly to PDF.</td>
   </tr>
   <tr>
     <td><img src="docs/assets/screens/graph-9001.webp" alt="Dependency graph for CUST-9001 showing the owned workspace referenced by two other customers' membership rows."><br><b>Dependency graph.</b> CUST-9001's workspace is referenced by two other customers, so the sandbox blocks the plan before any backup or approval.</td>
@@ -155,15 +155,30 @@ The demo ships a synthetic dataset, [`infra/fixtures/demo-dataset.json`](infra/f
     <td><img src="docs/assets/screens/systems.webp" alt="Systems page showing live row counts per PostgreSQL table and object counts per MinIO bucket."><br><b>Systems.</b> Live inventory per table and bucket. Watch the counts drop after an erasure and the backup bucket grow.</td>
   </tr>
   <tr>
-    <td><img src="docs/assets/screens/customers.webp" alt="Customers page with masked names, footprint bars and residual personal-data counts."><br><b>Customers.</b> Masked identities, footprint by policy, and a residual count from a live rescan.</td>
+    <td><img src="docs/assets/screens/customers.webp" alt="Customers page with masked names, warm initial avatars, footprint bars and residual personal-data counts."><br><b>Customers.</b> Masked identities, footprint by policy, and a residual count from a live rescan. An erased customer's avatar turns into a redaction swatch.</td>
     <td><img src="docs/assets/screens/policies.webp" alt="Policies page with active limits, the five safety gates and the retention rules."><br><b>Policies.</b> Retention rules and the limits the running API enforces, read from its configuration.</td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="docs/assets/mobile-3d.webp" width="88%" alt="Two phones in 3D perspective: the landing page with the live record sphere, and a certificate of erasure.">
+  <img src="docs/assets/mobile-3d.webp" width="88%" alt="Two phones in 3D perspective: the onyx landing page with the live record sphere, and a cream certificate of erasure.">
   <br><sub>Responsive down to phone width. The landing page's 3D record sphere is drawn from live record counts.</sub>
 </p>
+
+## Two papers: Onyx and Vellum
+
+The console is designed like security printing: gold foil for proof, black ink for redaction, guilloche linework on the certificate. **Onyx** (dark, default) and **Vellum** (cream and gold) are one click apart: the toggle in the top bar repaints the page with a circular reveal, and the choice is remembered. Status colours carry meaning only (vermilion deletes, copper redacts, stone retains, sage verifies), and both themes pass an automated WCAG AA audit.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screens/landing.webp" alt="Landing page in the onyx theme: headline, gold-foil buttons, live stats and the record sphere in front of a guilloche rosette."><br><b>Onyx.</b> The landing page reveals its headline from under redaction bars; every number and every point on the sphere is live.</td>
+    <td width="50%"><img src="docs/assets/screens/landing-light.webp" alt="The same landing page in the cream Vellum theme with burnished gold accents."><br><b>Vellum.</b> The same page on cream paper with burnished gold.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screens/overview.webp" alt="Console overview in onyx: KPIs with progress rings, recent requests and the request form."><br><b>Overview, onyx.</b> Counts animate in, rings show erasure and audit-chain health.</td>
+    <td><img src="docs/assets/screens/overview-light.webp" alt="Console overview in cream."><br><b>Overview, vellum.</b></td>
+  </tr>
+</table>
 
 ## Quick start
 

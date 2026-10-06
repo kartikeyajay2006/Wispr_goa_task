@@ -65,10 +65,10 @@ export default function ConsoleLayout() {
     </aside>
     <div className="main">
       <header className="topbar">
-        <button type="button" className="command-trigger" onClick={() => setPaletteOpen(true)}><Search size={15} />{speechSupported ? 'Search, or say a command' : 'Search or run a command'}<kbd>Ctrl K</kbd></button>
+        <button type="button" className="command-trigger" onClick={() => setPaletteOpen(true)}><Search size={15} /><span className="trigger-label">{speechSupported ? 'Search, or say a command' : 'Search or run a command'}</span><kbd>Ctrl K</kbd></button>
         <div className="who">
           <button type="button" className={`who-button ${name ? '' : 'missing'}`} aria-expanded={identityOpen} onClick={() => setIdentityOpen(open => !open)}>
-            {name ? <><UserRound size={15} /><span>Acting as</span> <b>{name}</b></> : <><UserRound size={15} />Set your name to approve</>}
+            {name ? <><UserRound size={15} /><span>Acting as</span> <b>{name}</b></> : <><UserRound size={15} /><span className="who-long">Set your name to approve</span><span className="who-short">Your name</span></>}
           </button>
           {identityOpen && <div className="who-popover panel" role="dialog" aria-label="Who is acting"><OperatorField label="Acting as" autoFocus /><button type="button" className="btn btn-ghost" onClick={() => setIdentityOpen(false)}>Done</button></div>}
         </div>

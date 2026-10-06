@@ -235,3 +235,12 @@ a.kpi:hover { background: var(--surface-3); }
 .who-button b { color: var(--text); }
 .who-button.missing { color: var(--redact); background: var(--redact-soft); border-color: color-mix(in srgb, var(--redact) 35%, transparent); font-weight: 600; }
 .who-popover { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(340px, calc(100vw - 32px)); padding: 1rem; display: grid; gap: 0.6rem; animation: pop-in 0.22s var(--ease-spring) both; }
+.trigger-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.command-trigger { min-width: 0; }
+.who-button { white-space: nowrap; }
+.who-short { display: none; }
+@media (max-width: 900px) {
+  .who-button.missing .who-long { display: none; }
+  .who-button.missing .who-short { display: inline; }
+  .topbar { gap: 0.5rem; }
+}
