@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Link, NavLink, Outlet, useNavigate} from 'react-router-dom';
+import {Link, NavLink, Outlet, useLocation, useNavigate} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {BookOpen, Bot, Database, Inbox, LayoutDashboard, ListChecks, RotateCcw, ScrollText, Search, UserRound, Users} from 'lucide-react';
 import {api} from '../api';
@@ -25,6 +25,7 @@ export default function ConsoleLayout() {
   const [draft, setDraft] = useState(name);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const health = useQuery({queryKey: ['health'], queryFn: api.health, refetchInterval: 10_000, retry: false});
   const overview = useQuery({queryKey: ['overview'], queryFn: api.overview, refetchInterval: 10_000});
   const pending = (overview.data?.requests.awaitingApproval ?? 0) + (overview.data?.requests.ready ?? 0);
@@ -64,7 +65,7 @@ export default function ConsoleLayout() {
       </header>
       <nav className="mobile-nav" aria-label="Console navigation">{NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className={({isActive}) => isActive ? 'active' : ''}>{item.label}{item.badge && pending > 0 ? ` (${pending})` : ''}</NavLink>)}</nav>
       {health.isError && <div className="page" style={{paddingBottom: 0}}><div className="notice error" role="alert">The API is not reachable. Start it with <code>npm run dev</code>; this page reconnects on its own.</div></div>}
-      <Outlet />
+      <div key={location.pathname} className="route-in"><Outlet /></div>
     </div>
     <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
   </div>;

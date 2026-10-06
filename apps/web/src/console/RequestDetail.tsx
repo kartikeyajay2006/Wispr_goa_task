@@ -1,10 +1,13 @@
-import {lazy, Suspense, useEffect, useRef, useState} from 'react';
+import {lazy, Suspense, useEffect, useRef, useState, type CSSProperties} from 'react';
 import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {AlertTriangle, ArrowRight, Check, CheckCircle2, Download, FileCheck2, HardDrive, Loader2, LockKeyhole, Printer, RefreshCw, RotateCcw, ScanLine, ShieldAlert, ShieldCheck, X} from 'lucide-react';
 import {api, ApiError, type Stage, type Workflow} from '../api';
 import {useOperator} from '../operator';
 import {ActionChip, Empty, ErrorNotice, FootprintBar, Guilloche, Hash, Legend, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
+import {TabInk, atLeast} from '../components/motion';
+
+const order = (i: number) => ({'--i': i}) as CSSProperties;
 
 const DependencyGraph = lazy(() => import('./DependencyGraph'));
 const STAGES: Stage[] = ['intake', 'discovery', 'footprint', 'dependencies', 'classification', 'plan', 'sandbox', 'backup', 'blast_radius', 'policy', 'approval', 'execution', 'rescan', 'report'];
@@ -17,6 +20,7 @@ export default function RequestDetail() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.some(([key]) => key === params.get('tab')) ? params.get('tab') : 'overview') as Tab;
   const workflow = useQuery({queryKey: ['request', id], queryFn: () => api.request(id), refetchInterval: query => query.state.data?.state === 'APPROVED' ? 5_000 : false});
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   if (workflow.isLoading) return <div className="page"><div className="skeleton" style={{height: 120}} /><div className="skeleton" style={{height: 420}} /></div>;
   if (workflow.error || !workflow.data) return <div className="page"><ErrorNotice error={workflow.error ?? new Error('Request not found')} />{workflow.error instanceof ApiError && workflow.error.status === 404 && <p className="dim">Requests live in memory unless persistence is set to PostgreSQL, so restarting the API or resetting the demo clears them. <Link to="/console/requests/new">Open a new one</Link>.</p>}</div>;
@@ -35,7 +39,7 @@ export default function RequestDetail() {
     </header>
     <div className="req-grid">
       <section className="panel req-body">
-        <div className="tabs" role="tablist" aria-label="Request evidence">{TABS.map(([key, label]) => <button key={key} type="button" role="tab" className="tab" aria-selected={tab === key} onClick={() => setTab(key)}>{label}{key === 'footprint' && <span className="count">{data.assets.length}</span>}{key === 'sandbox' && data.sandbox?.status === 'failed' && <AlertTriangle size={13} className="dot-bad" />}{key === 'backup' && data.sandboxPassed && !data.backupVerified && <AlertTriangle size={13} className="dot-bad" />}</button>)}</div>
+        <div className="tabs" role="tablist" aria-label="Request evidence" ref={tabsRef}><TabInk container={tabsRef} activeKey={tab} />{TABS.map(([key, label]) => <button key={key} type="button" role="tab" className="tab" aria-selected={tab === key} onClick={() => setTab(key)}>{label}{key === 'footprint' && <span className="count">{data.assets.length}</span>}{key === 'sandbox' && data.sandbox?.status === 'failed' && <AlertTriangle size={13} className="dot-bad" />}{key === 'backup' && data.sandboxPassed && !data.backupVerified && <AlertTriangle size={13} className="dot-bad" />}</button>)}</div>
         <div className="tab-body" role="tabpanel">
           {tab === 'overview' && <TimelineTab workflow={data} />}
           {tab === 'footprint' && <FootprintTab workflow={data} />}
@@ -57,9 +61,9 @@ function StageTrack({workflow}: {workflow: Workflow}) {
   const reached = new Set(workflow.events.map(event => event.stage));
   const current = workflow.stage;
   const failed = workflow.status === 'blocked' && !['REJECTED', 'ROLLED_BACK'].includes(workflow.state ?? '');
-  return <div className="stages" aria-label="Workflow progress">{STAGES.map(stage => {
+  return <div className="stages" aria-label="Workflow progress" tabIndex={0}>{STAGES.map((stage, index) => {
     const state = stage === current ? (failed ? 'failed' : 'current') : reached.has(stage) ? 'done' : '';
-    return <div key={stage} className={`stage ${state}`} aria-current={stage === current ? 'step' : undefined}><i /><span>{STAGE_LABEL[stage]}</span></div>;
+    return <div key={stage} className={`stage ${state}`} style={order(index)} aria-current={stage === current ? 'step' : undefined}><i /><span>{STAGE_LABEL[stage]}</span></div>;
   })}</div>;
 }
 
@@ -79,7 +83,7 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
   const onError = async (error: unknown) => { toast.error(error); await queryClient.invalidateQueries({queryKey: ['request', workflow.requestId]}); };
   const approve = useMutation({mutationFn: () => api.approve(workflow.requestId, confirmation), onSuccess: async next => { await refresh(next); toast.ok(`Plan approved by ${operator}. It can be executed for the next few minutes.`); }, onError});
   const reject = useMutation({mutationFn: () => api.reject(workflow.requestId, reason.trim() || undefined), onSuccess: async next => { await refresh(next); toast.ok('Plan rejected. Nothing was deleted.'); }, onError});
-  const execute = useMutation({mutationFn: () => api.execute(workflow.requestId, workflow.approval!.token, workflow.plan.hash), onSuccess: async next => { await refresh(next); toast.ok(`Erased and verified: ${next.verification?.remainingMatches ?? 0} residual records.`); onTab('report'); }, onError});
+  const execute = useMutation({mutationFn: () => atLeast(api.execute(workflow.requestId, workflow.approval!.token, workflow.plan.hash), 1800), onSuccess: async next => { await refresh(next); toast.ok(`Erased and verified: ${next.verification?.remainingMatches ?? 0} residual records.`); onTab('report'); }, onError});
   const rollback = useMutation({mutationFn: () => api.rollback(workflow.requestId), onSuccess: async next => { await refresh(next); toast.ok('Data restored from the request backup.'); }, onError});
   const live = useMutation({mutationFn: () => api.create({customerId: workflow.customerId, reason: workflow.request?.reason ?? 'Erasure request', dryRun: false}), onSuccess: async next => { await queryClient.invalidateQueries(); navigate(`/console/requests/${next.requestId}`); toast.ok('Live request opened from the dry run.'); }, onError: error => toast.error(error)});
   const busy = approve.isPending || reject.isPending || execute.isPending || rollback.isPending || live.isPending;
@@ -118,6 +122,7 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
       {workflow.state === 'APPROVED' && workflow.approval && <>
         <div><h3 style={{fontSize: 'var(--step-1)'}}>Ready to execute</h3><p className="small dim">Approved by <b>{workflow.approval.approvedBy}</b>. The approval works once and expires in <Countdown until={workflow.approval.expiresAt} />.</p></div>
         <div className="notice warn"><AlertTriangle size={15} />This permanently deletes {plural(workflow.blastRadius.deletable, 'record')} and redacts {workflow.blastRadius.anonymized}. A backup is kept for rollback if verification fails.</div>
+        {execute.isPending && <ErasingProgress workflow={workflow} />}
         <button type="button" className="btn btn-danger btn-lg" disabled={busy || !operator || Date.parse(workflow.approval.expiresAt) <= Date.now()} onClick={() => execute.mutate()}>{execute.isPending ? <><Loader2 size={16} className="spin" />Executing and rescanning…</> : <>Execute approved plan</>}</button>
       </>}
 
@@ -138,6 +143,14 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
   </aside>;
 }
 
+/** Shown while the approved plan runs: each action is struck through in order, then the rescan line sweeps. */
+function ErasingProgress({workflow}: {workflow: Workflow}) {
+  return <div className="erasing" role="status" aria-live="polite">
+    <div className="erasing-title"><Loader2 size={15} className="spin" />Executing {plural(workflow.plan.items.length, 'action')}, then rescanning every system</div>
+    {workflow.plan.items.map((item, index) => <div key={item.id} className={`er-row ${item.action}`} style={order(index)}><span>{item.label}</span><span>{item.action === 'retain' ? 'kept' : item.action === 'redact' ? `redact ${item.count}` : `delete ${item.count}`}</span></div>)}
+  </div>;
+}
+
 function Countdown({until}: {until: string}) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
@@ -156,7 +169,7 @@ function TimelineTab({workflow}: {workflow: Workflow}) {
       <Stat value={workflow.blastRadius.retained} label="records retained" color="var(--retain)" />
       {workflow.verification && <Stat value={workflow.verification.remainingMatches} label="residual after rescan" color={workflow.verification.remainingMatches ? 'var(--delete)' : 'var(--ok)'} />}
     </div>
-    <ol className="timeline">{workflow.events.map(event => <li key={event.id}><span className={`node ${event.actor}`} /><div><strong>{event.message}</strong><small>{STAGE_LABEL[event.stage]}, {event.actor}, {formatTime(event.at)}</small></div></li>)}</ol>
+    <ol className="timeline">{workflow.events.map((event, index) => <li key={event.id} style={order(index)}><span className={`node ${event.actor}`} /><div><strong>{event.message}</strong><small>{STAGE_LABEL[event.stage]}, {event.actor}, {formatTime(event.at)}</small></div></li>)}</ol>
   </div>;
 }
 
@@ -221,7 +234,7 @@ function BackupTab({workflow}: {workflow: Workflow}) {
     <div className={`notice ${workflow.backupVerified ? 'ok' : 'error'}`}>{workflow.backupVerified ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}{workflow.backupVerified ? 'Every affected record was backed up, read back, and matched its checksum.' : 'The backup is incomplete or unverifiable, so approval is locked.'}</div>
     {(workflow.backupFailures ?? []).map(failure => <div key={failure} className="check fail"><X size={15} /><span>{failure}</span></div>)}
     {(workflow.backupChecks ?? []).map(check => <div key={check.system} className={`check ${check.verified ? 'pass' : 'fail'}`}>{check.verified ? <Check size={15} /> : <X size={15} />}<span><b>{check.system}</b>: {check.reason}</span></div>)}
-    {workflow.backup && <div className="panel table-wrap" style={{boxShadow: 'none'}}><table className="table"><thead><tr><th>Resource</th><th>Kind</th><th className="num">Records</th><th>SHA-256</th></tr></thead><tbody>{workflow.backup.resources.map(resource => <tr key={resource.resource}><td className="id">{resource.resource}</td><td className="dim">{resource.kind}</td><td className="num">{resource.records}</td><td><Hash value={resource.checksum} length={16} /></td></tr>)}</tbody></table></div>}
+    {workflow.backup && <div className="panel table-wrap" style={{boxShadow: 'none'}} tabIndex={0}><table className="table"><thead><tr><th>Resource</th><th>Kind</th><th className="num">Records</th><th>SHA-256</th></tr></thead><tbody>{workflow.backup.resources.map(resource => <tr key={resource.resource}><td className="id">{resource.resource}</td><td className="dim">{resource.kind}</td><td className="num">{resource.records}</td><td><Hash value={resource.checksum} length={16} /></td></tr>)}</tbody></table></div>}
   </div>;
 }
 
@@ -258,9 +271,9 @@ function ReportTab({workflow}: {workflow: Workflow}) {
         <div><dt>Residual after rescan</dt><dd style={{color: data.verification.remainingMatches === 0 ? 'var(--ok)' : undefined}}>{data.verification.remainingMatches < 0 ? 'Not rescanned' : data.verification.remainingMatches}</dd></div>
         <div><dt>Audit chain</dt><dd>{audit.data ? (audit.data.chain.valid ? `Intact, ${plural(audit.data.events.length, 'event')}` : `Broken: ${audit.data.chain.reason}`) : '…'}</dd></div>
       </dl>
-      <div className="cert-foot"><div className={`seal ${erased ? '' : 'void'}`}>{erased ? <>Verified<br />erased</> : <>Not<br />erased</>}</div><span className="small dim">Generated {formatTime(data.generatedAt)}<br />Report {data.reportId.slice(0, 22)}</span><div className="row no-print"><button type="button" className="btn" onClick={() => window.print()}><Printer size={15} />Print or save as PDF</button><button type="button" className="btn" onClick={download}><Download size={15} />Download JSON</button></div></div>
+      <div className="cert-foot"><div className={`seal stamp ${erased ? '' : 'void'}`}>{erased ? <>Verified<br />erased</> : <>Not<br />erased</>}</div><span className="small dim">Generated {formatTime(data.generatedAt)}<br />Report {data.reportId.slice(0, 22)}</span><div className="row no-print"><button type="button" className="btn" onClick={() => window.print()}><Printer size={15} />Print or save as PDF</button><button type="button" className="btn" onClick={download}><Download size={15} />Download JSON</button></div></div>
     </article>
-    <div className="panel table-wrap" style={{boxShadow: 'none'}}><table className="table"><thead><tr><th>Action</th><th>Resource</th><th className="num">Planned</th><th className="num">Changed</th><th>Result</th></tr></thead><tbody>{data.actions.map(action => <tr key={action.id}><td><ActionChip action={action.action} /></td><td><span className="id">{action.resource}</span> <span className="muted small">{action.system}</span></td><td className="num">{action.planned}</td><td className="num">{action.changed}</td><td className="dim">{action.status}</td></tr>)}</tbody></table></div>
+    <div className="panel table-wrap" style={{boxShadow: 'none'}} tabIndex={0}><table className="table"><thead><tr><th>Action</th><th>Resource</th><th className="num">Planned</th><th className="num">Changed</th><th>Result</th></tr></thead><tbody>{data.actions.map(action => <tr key={action.id}><td><ActionChip action={action.action} /></td><td><span className="id">{action.resource}</span> <span className="muted small">{action.system}</span></td><td className="num">{action.planned}</td><td className="num">{action.changed}</td><td className="dim">{action.status}</td></tr>)}</tbody></table></div>
   </div>;
 }
 
@@ -268,6 +281,6 @@ function AuditTab({workflow}: {workflow: Workflow}) {
   const audit = useQuery({queryKey: ['request-audit', workflow.requestId, workflow.events.length], queryFn: () => api.requestAudit(workflow.requestId)});
   return <div className="stack">
     {audit.data && <div className={`notice ${audit.data.chain.valid ? 'ok' : 'error'}`}>{audit.data.chain.valid ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}{audit.data.chain.valid ? `Hash chain verified across ${plural(audit.data.events.length, 'event')}.` : audit.data.chain.reason}</div>}
-    <div className="panel table-wrap" style={{boxShadow: 'none'}}><table className="table"><thead><tr><th>#</th><th>Event</th><th>Actor</th><th>Previous</th><th>Hash</th></tr></thead><tbody>{(audit.data?.events ?? workflow.events).map(event => <tr key={event.id}><td className="mono muted">{event.sequence}</td><td><div>{event.message}</div><small className="muted">{STAGE_LABEL[event.stage]}, {formatTime(event.at)}</small></td><td className="dim">{event.actor}</td><td><code className="muted">{event.previousHash === 'GENESIS' ? 'genesis' : event.previousHash.slice(0, 10)}</code></td><td><Hash value={event.eventHash} length={10} /></td></tr>)}</tbody></table></div>
+    <div className="panel table-wrap" style={{boxShadow: 'none'}} tabIndex={0}><table className="table"><thead><tr><th>#</th><th>Event</th><th>Actor</th><th>Previous</th><th>Hash</th></tr></thead><tbody>{(audit.data?.events ?? workflow.events).map(event => <tr key={event.id}><td className="mono muted">{event.sequence}</td><td><div>{event.message}</div><small className="muted">{STAGE_LABEL[event.stage]}, {formatTime(event.at)}</small></td><td className="dim">{event.actor}</td><td><code className="muted">{event.previousHash === 'GENESIS' ? 'genesis' : event.previousHash.slice(0, 10)}</code></td><td><Hash value={event.eventHash} length={10} /></td></tr>)}</tbody></table></div>
   </div>;
 }

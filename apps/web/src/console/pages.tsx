@@ -1,9 +1,10 @@
-import {useEffect, useMemo, useState, type FormEvent} from 'react';
+import {useEffect, useMemo, useRef, useState, type FormEvent} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ArrowRight, Bot, CheckCircle2, Database, HardDrive, Inbox, ListChecks, Loader2, Plus, ScrollText, ShieldAlert, ShieldCheck, Users} from 'lucide-react';
 import {api, type RequestSummary} from '../api';
-import {ActionChip, Empty, ErrorNotice, FootprintBar, Legend, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
+import {ActionChip, Avatar, Empty, ErrorNotice, FootprintBar, Legend, Ring, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
+import {CountUp, TabInk} from '../components/motion';
 
 function PageHead({title, children, action}: {title: string; children?: React.ReactNode; action?: React.ReactNode}) {
   return <div className="page-head"><div><h1>{title}</h1>{children && <p>{children}</p>}</div>{action}</div>;
@@ -12,7 +13,7 @@ function PageHead({title, children, action}: {title: string; children?: React.Re
 function RequestTable({rows, empty}: {rows: RequestSummary[]; empty: React.ReactNode}) {
   const navigate = useNavigate();
   if (!rows.length) return <>{empty}</>;
-  return <div className="table-wrap"><table className="table">
+  return <div className="table-wrap" tabIndex={0}><table className="table">
     <thead><tr><th>Customer</th><th>Status</th><th>Footprint</th><th className="num">Records changed</th><th>Opened</th><th>By</th></tr></thead>
     <tbody>{rows.map(row => <tr key={row.requestId} className="clickable" onClick={() => navigate(`/console/requests/${row.requestId}`)}>
       <td><Link to={`/console/requests/${row.requestId}`} className="id" onClick={event => event.stopPropagation()}>{row.customerId}</Link>{row.blockedBy && <div className="small clamp-2" style={{color: 'var(--delete)', maxWidth: 360, minWidth: 200}} title={row.blockedBy}>{row.blockedBy}</div>}</td>
@@ -61,11 +62,11 @@ export function Overview() {
     <PageHead title="Overview" action={<Link className="btn btn-primary" to="/console/agent"><Bot size={15} />Ask the agent</Link>}>Live state of every connected system and request.</PageHead>
     <ErrorNotice error={overview.error} />
     <div className="kpis">
-      <Link className="kpi" to="/console/approvals"><span>Waiting on a human</span><strong>{data ? data.requests.awaitingApproval + data.requests.ready : '…'}</strong><small>{data ? `${data.requests.awaitingApproval} to approve, ${data.requests.ready} to execute` : ''}</small></Link>
-      <Link className="kpi" to="/console/customers"><span>Customers erased</span><strong>{data ? `${data.customers.erased}/${data.customers.total}` : '…'}</strong><small>verified by rescan</small></Link>
-      <Link className="kpi" to="/console/systems"><span>Records under management</span><strong>{data?.records.managed ?? '…'}</strong><small>{data ? `${data.records.residual} still personal and erasable` : ''}</small></Link>
-      <Link className="kpi" to="/console/requests"><span>Records changed</span><strong>{data?.records.changed ?? '…'}</strong><small>{data ? `across ${plural(data.requests.executed, 'executed request')}` : ''}</small></Link>
-      <Link className="kpi" to="/console/audit"><span>Audit chains intact</span><strong>{data ? `${data.audit.verified}/${data.audit.chains}` : '…'}</strong><small>{data ? plural(data.audit.events, 'hashed event') : ''}</small></Link>
+      <Link className="kpi" to="/console/approvals"><span>Waiting on a human</span><strong>{data ? <CountUp value={data.requests.awaitingApproval + data.requests.ready} /> : '…'}</strong><small>{data ? `${data.requests.awaitingApproval} to approve, ${data.requests.ready} to execute` : ''}</small></Link>
+      <Link className="kpi" to="/console/customers"><span>Customers erased</span><div className="kpi-row"><strong>{data ? <><CountUp value={data.customers.erased} />/<CountUp value={data.customers.total} /></> : '…'}</strong>{data && <Ring value={data.customers.erased} total={data.customers.total} />}</div><small>verified by rescan</small></Link>
+      <Link className="kpi" to="/console/systems"><span>Records under management</span><strong>{data ? <CountUp value={data.records.managed} /> : '…'}</strong><small>{data ? `${data.records.residual} still personal and erasable` : ''}</small></Link>
+      <Link className="kpi" to="/console/requests"><span>Records changed</span><strong>{data ? <CountUp value={data.records.changed} /> : '…'}</strong><small>{data ? `across ${plural(data.requests.executed, 'executed request')}` : ''}</small></Link>
+      <Link className="kpi" to="/console/audit"><span>Audit chains intact</span><div className="kpi-row"><strong>{data ? <><CountUp value={data.audit.verified} />/<CountUp value={data.audit.chains} /></> : '…'}</strong>{data && data.audit.chains > 0 && <Ring value={data.audit.verified} total={data.audit.chains} />}</div><small>{data ? plural(data.audit.events, 'hashed event') : ''}</small></Link>
     </div>
     <div className="grid-2">
       <section className="panel">
@@ -95,12 +96,13 @@ const FILTERS: Array<[string, string, (row: RequestSummary) => boolean]> = [
 export function Requests() {
   const requests = useQuery({queryKey: ['requests'], queryFn: api.requests, refetchInterval: 8_000});
   const [filter, setFilter] = useState('all');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const rows = useMemo(() => (requests.data ?? []).filter(FILTERS.find(([id]) => id === filter)![2]), [requests.data, filter]);
   return <div className="page">
     <PageHead title="Requests" action={<Link className="btn btn-primary" to="/console/requests/new"><Plus size={15} />New request</Link>}>Every erasure request this API has handled, with the gate that stopped it if one did.</PageHead>
     <ErrorNotice error={requests.error} />
     <section className="panel">
-      <div className="tabs" role="tablist">{FILTERS.map(([id, label, predicate]) => <button key={id} type="button" role="tab" className="tab" aria-selected={filter === id} onClick={() => setFilter(id)}>{label}<span className="count">{(requests.data ?? []).filter(predicate).length}</span></button>)}</div>
+      <div className="tabs" role="tablist" ref={tabsRef}><TabInk container={tabsRef} activeKey={filter} />{FILTERS.map(([id, label, predicate]) => <button key={id} type="button" role="tab" className="tab" aria-selected={filter === id} onClick={() => setFilter(id)}>{label}<span className="count">{(requests.data ?? []).filter(predicate).length}</span></button>)}</div>
       <RequestTable rows={rows} empty={<Empty icon={<ListChecks size={28} />} title={filter === 'all' ? 'No requests yet' : 'Nothing in this view'}><Link className="btn" to="/console/requests/new">Open a request</Link></Empty>} />
     </section>
   </div>;
@@ -126,7 +128,7 @@ export function Approvals() {
     </section>
     <section className="panel">
       <div className="panel-head"><div><h3>Approved, waiting to execute</h3><p>Each approval is single-use and has a deadline.</p></div></div>
-      {ready.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Customer</th><th>Approved by</th><th>Expires</th><th /></tr></thead><tbody>{ready.map(row => <tr key={row.requestId}><td className="id">{row.customerId}</td><td>{row.approvedBy}</td><td>{relativeTime(row.approvalExpiresAt)}</td><td style={{textAlign: 'right'}}><Link className="btn btn-primary" to={`/console/requests/${row.requestId}`}>Review and execute</Link></td></tr>)}</tbody></table></div>
+      {ready.length ? <div className="table-wrap" tabIndex={0}><table className="table"><thead><tr><th>Customer</th><th>Approved by</th><th>Expires</th><th /></tr></thead><tbody>{ready.map(row => <tr key={row.requestId}><td className="id">{row.customerId}</td><td>{row.approvedBy}</td><td>{relativeTime(row.approvalExpiresAt)}</td><td style={{textAlign: 'right'}}><Link className="btn btn-primary" to={`/console/requests/${row.requestId}`}>Review and execute</Link></td></tr>)}</tbody></table></div>
         : <Empty icon={<CheckCircle2 size={28} />} title="No approved plans pending" />}
     </section>
   </div>;
@@ -137,15 +139,15 @@ export function Customers() {
   return <div className="page">
     <PageHead title="Customers" action={<Legend />}>Everyone the connected systems hold data for. Names and emails are masked; residual counts come from a live rescan.</PageHead>
     <ErrorNotice error={customers.error} />
-    <section className="panel table-wrap">
+    <section className="panel table-wrap" tabIndex={0}>
       <table className="table">
         <thead><tr><th>Customer</th><th>Footprint</th><th className="num">Residual personal data</th><th>Notes</th><th>Status</th><th /></tr></thead>
         <tbody>{(customers.data ?? []).map(customer => <tr key={customer.customerId}>
-          <td><span className="id">{customer.customerId}</span><div className="small dim">{customer.displayName ?? <span className="redaction" style={{width: 64}} aria-label="name redacted" />} {customer.email && <span className="muted">{customer.email}</span>}</div></td>
+          <td><div className="who-cell"><Avatar name={customer.displayName} /><div><span className="id">{customer.customerId}</span><div className="small dim">{customer.displayName ?? <span className="redaction" style={{width: 64}} aria-label="name redacted" />} {customer.email && <span className="muted">{customer.email}</span>}</div></div></div></td>
           <td style={{minWidth: 170}}><FootprintBar deletable={customer.footprint.deletable} anonymize={customer.footprint.anonymize} retained={customer.footprint.retained} /><div className="small muted" style={{marginTop: 4}}>{plural(customer.footprint.records, 'record')}, {customer.footprint.systems.join(' + ') || 'none'}</div></td>
           <td className="num">{customer.residual}</td>
           <td className="small dim" style={{maxWidth: 300}}>{customer.signals.join('. ') || 'None'}</td>
-          <td>{customer.latestRequest ? <StatePill state={customer.latestRequest.state} /> : customer.status === 'erased' ? <span className="pill done">Erased</span> : <span className="pill neutral">Active</span>}</td>
+          <td>{customer.latestRequest ? <StatePill state={customer.latestRequest.state} dryRun={customer.latestRequest.dryRun} /> : customer.status === 'erased' ? <span className="pill done">Erased</span> : <span className="pill neutral">Active</span>}</td>
           <td style={{textAlign: 'right'}}>{customer.latestRequest ? <Link className="btn" to={`/console/requests/${customer.latestRequest.requestId}`}>View request</Link> : <Link className="btn" to={`/console/requests/new?customer=${customer.customerId}`}>Start request</Link>}</td>
         </tr>)}</tbody>
       </table>
@@ -192,7 +194,7 @@ export function Policies() {
       <div className="panel-head"><div><h3>Safety gates</h3><p>In the order a request meets them</p></div><ShieldCheck size={18} className="dot-uv" /></div>
       <div className="panel-pad stack">{data?.gates.map((gate, index) => <div key={gate.id} className="check pass" style={{gridTemplateColumns: '28px 1fr'}}><span className="mono muted">{index + 1}</span><div><strong>{gate.title}</strong><p className="dim small">{gate.rule}</p></div></div>)}</div>
     </section>
-    <section className="panel table-wrap">
+    <section className="panel table-wrap" tabIndex={0}>
       <div className="panel-head"><div><h3>Retention policy v{data?.version}</h3><p>Resources the policy does not name are retained and flagged</p></div></div>
       <table className="table"><thead><tr><th>Resource</th><th>Outcome</th><th>Legal basis</th><th>Kept for</th><th>Risk</th></tr></thead>
         <tbody>{data?.rules.map(rule => <tr key={`${rule.system}:${rule.resource}`}><td><strong>{rule.label}</strong><div className="id muted">{rule.system} / {rule.resource}</div></td><td><ActionChip action={rule.classification} /></td><td className="dim">{rule.basis}</td><td>{rule.retention ?? <span className="muted">n/a</span>}</td><td><span className={`chip risk-${rule.risk}`}>{rule.risk}</span></td></tr>)}</tbody>

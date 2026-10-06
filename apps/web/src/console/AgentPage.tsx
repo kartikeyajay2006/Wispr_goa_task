@@ -52,7 +52,7 @@ export default function AgentPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<unknown>();
   const abort = useRef<AbortController | null>(null);
-  const feedEnd = useRef<HTMLDivElement>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
 
   const push = useCallback((event: AgentEvent) => setEvents(current => [...current, event]), []);
   const finish = useCallback(async () => { setRunning(false); await queryClient.invalidateQueries(); }, [queryClient]);
@@ -74,7 +74,8 @@ export default function AgentPage() {
     const timer = setTimeout(() => { setParams({}, {replace: true}); void start(initial); }, 0);
     return () => clearTimeout(timer);
   }, [params, setParams, start]);
-  useEffect(() => { feedEnd.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }, [events.length]);
+  // Follow the transcript inside its own panel; scrolling the window would make the page jump.
+  useEffect(() => { const feed = feedRef.current; if (feed) feed.scrollTo({top: feed.scrollHeight, behavior: 'smooth'}); }, [events.length]);
 
   const speech = useSpeech({onInterim: setGoal, onFinal: text => void start(text), onError: message => toast.error(message)});
   const run = events.find((event): event is Extract<AgentEvent, {type: 'run'}> => event.type === 'run');
@@ -114,11 +115,11 @@ export default function AgentPage() {
         : <span className="engine-badge" title={status.data.reason}><Wrench size={15} />Rule-based agents · {status.data.reason}</span>)}
     </div>
 
-    <form className="panel agent-composer" onSubmit={submit}>
+    <form className={`panel agent-composer ${running ? 'running' : ''}`} onSubmit={submit}>
       <Bot size={20} className="dot-uv" />
       <input className="agent-input" value={goal} onChange={event => setGoal(event.target.value)} placeholder={examples[0] ? `Try: ${examples[0]}` : 'Describe the erasure or question'} aria-label="What should the agent do?" maxLength={500} />
       {speech.supported && <button type="button" className={`btn icon-btn mic ${speech.listening ? 'listening' : ''}`} aria-pressed={speech.listening} aria-label={speech.listening ? 'Stop listening' : 'Dictate'} onClick={speech.toggle}>{speech.listening ? <MicOff size={16} /> : <Mic size={16} />}</button>}
-      <button className="btn btn-primary" disabled={running || !goal.trim()}>{running ? <Loader2 size={16} className="spin" /> : <Play size={16} />}Run agents</button>
+      <button className="btn btn-primary" aria-label="Run agents" disabled={running || !goal.trim()}>{running ? <Loader2 size={16} className="spin" /> : <Play size={16} />}<span className="run-label">Run agents</span></button>
     </form>
     {!events.length && <div className="agent-examples">{examples.map(example => <button key={example} type="button" className="chip-btn" onClick={() => void start(example)}>{example}</button>)}</div>}
     <ErrorNotice error={error} />
@@ -137,17 +138,17 @@ export default function AgentPage() {
 
       <section className="panel agent-feed" aria-live="polite">
         <div className="panel-head"><div><h3>{run?.goal ?? goal}</h3><p>{run?.engine === 'rules' && run.note ? run.note : 'Live transcript of the run'}</p></div></div>
-        <div className="feed">
+        <div className="feed" ref={feedRef}>
           <Feed events={events} />
+          {running && !approval && <div className="feed-working" aria-hidden="true"><span className="dots"><i /><i /><i /></span>{STAGES.find(stage => stages[stage.key] === 'active')?.label ?? 'Agents'} working</div>}
           {approval && <ApprovalCard approval={approval} operator={operator} busy={running} onDecide={resume} />}
-          <div ref={feedEnd} />
         </div>
       </section>
     </div>}
 
     <section className="panel">
       <div className="panel-head"><div><h3>Recent agent runs</h3><p>Runs live in memory until the API restarts or the demo is reset</p></div></div>
-      {runs.data?.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Goal</th><th>Customer</th><th>Outcome</th><th>Started</th><th /></tr></thead><tbody>{runs.data.map(item => <tr key={item.threadId}>
+      {runs.data?.length ? <div className="table-wrap" tabIndex={0}><table className="table"><thead><tr><th>Goal</th><th>Customer</th><th>Outcome</th><th>Started</th><th /></tr></thead><tbody>{runs.data.map(item => <tr key={item.threadId}>
         <td>{item.goal}<div className="small muted">{item.engine === 'claude' ? 'Claude' : 'Rule-based'} · {item.operator}</div></td>
         <td className="id">{item.customerId ?? '—'}</td>
         <td><span className={`pill ${item.status === 'completed' ? 'done' : item.status === 'awaiting_approval' ? 'review' : item.status === 'failed' ? 'blocked' : 'ready'}`}>{item.status === 'awaiting_approval' ? 'Waiting for approval' : item.status}</span><div className="small dim">{item.headline}</div></td>

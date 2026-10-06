@@ -114,3 +114,22 @@ export function Guilloche({size = 220, strokes = 18, className}: {size?: number;
 }
 
 export function Dot({tone}: {tone: 'ok' | 'warn' | 'bad' | 'uv'}) { return <CircleDot size={14} className={`dot-${tone}`} aria-hidden="true" />; }
+
+/** Initials from the masked name; once a customer is erased the avatar becomes a redaction swatch. */
+export function Avatar({name, size = 30}: {name?: string; size?: number}) {
+  if (!name) return <span className="avatar erased" style={{width: size, height: size}} aria-label="Name erased" />;
+  const initials = name.replace(/\./g, '').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+  const hue = [...name].reduce((total, char) => total + char.charCodeAt(0), 0) % 360;
+  return <span className="avatar" aria-hidden="true" style={{width: size, height: size, background: `linear-gradient(140deg, hsl(${hue} 70% 62%), hsl(${(hue + 50) % 360} 65% 45%))`}}>{initials}</span>;
+}
+
+/** A progress ring that animates its arc when the value changes. */
+export function Ring({value, total, size = 46}: {value: number; total: number; size?: number}) {
+  const radius = size / 2 - 4;
+  const circumference = 2 * Math.PI * radius;
+  const fraction = total > 0 ? Math.min(1, value / total) : 0;
+  return <svg className="ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+    <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--line)" strokeWidth="4" />
+    <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--uv)" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fraction)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+  </svg>;
+}
