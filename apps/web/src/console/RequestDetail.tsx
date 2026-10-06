@@ -6,6 +6,7 @@ import {api, ApiError, type Stage, type Workflow} from '../api';
 import {useOperator} from '../operator';
 import {ActionChip, Empty, ErrorNotice, FootprintBar, Guilloche, Hash, Legend, StatePill, formatTime, plural, relativeTime, toast} from '../components/ui';
 import {TabInk, atLeast} from '../components/motion';
+import {OperatorField} from '../components/OperatorField';
 
 const order = (i: number) => ({'--i': i}) as CSSProperties;
 
@@ -78,10 +79,14 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
   const rejectRef = useRef<HTMLTextAreaElement>(null);
   const rollbackRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (focus === 'approve') approveRef.current?.focus(); else if (focus === 'reject') rejectRef.current?.focus(); else if (focus === 'rollback') rollbackRef.current?.focus(); }, [focus]);
+  // Re-render every second while approved, so an expiring approval turns into a renewal form on time.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { if (workflow.state !== 'APPROVED') return; const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [workflow.state]);
+  const expired = workflow.state === 'APPROVED' && Boolean(workflow.approval) && Date.parse(workflow.approval!.expiresAt) <= now && !workflow.approval!.used;
 
   const refresh = async (next: Workflow) => { queryClient.setQueryData(['request', next.requestId], next); await queryClient.invalidateQueries({predicate: query => query.queryKey[0] !== 'request'}); };
   const onError = async (error: unknown) => { toast.error(error); await queryClient.invalidateQueries({queryKey: ['request', workflow.requestId]}); };
-  const approve = useMutation({mutationFn: () => api.approve(workflow.requestId, confirmation), onSuccess: async next => { await refresh(next); toast.ok(`Plan approved by ${operator}. It can be executed for the next few minutes.`); }, onError});
+  const approve = useMutation({mutationFn: () => api.approve(workflow.requestId, confirmation), onSuccess: async next => { setConfirmation(''); await refresh(next); toast.ok(expired ? `Approval renewed by ${operator}.` : `Plan approved by ${operator}. Execute it before the approval expires.`); }, onError});
   const reject = useMutation({mutationFn: () => api.reject(workflow.requestId, reason.trim() || undefined), onSuccess: async next => { await refresh(next); toast.ok('Plan rejected. Nothing was deleted.'); }, onError});
   const execute = useMutation({mutationFn: () => atLeast(api.execute(workflow.requestId, workflow.approval!.token, workflow.plan.hash), 1800), onSuccess: async next => { await refresh(next); toast.ok(`Erased and verified: ${next.verification?.remainingMatches ?? 0} residual records.`); onTab('report'); }, onError});
   const rollback = useMutation({mutationFn: () => api.rollback(workflow.requestId), onSuccess: async next => { await refresh(next); toast.ok('Data restored from the request backup.'); }, onError});
@@ -112,22 +117,31 @@ function SafetyRail({workflow, focus, onTab}: {workflow: Workflow; focus: string
 
       {workflow.state === 'AWAITING_HUMAN_APPROVAL' && !workflow.dryRun && <>
         <div><h3 style={{fontSize: 'var(--step-1)'}}>Approve this exact plan</h3><p className="small dim">{plural(workflow.blastRadius.deletable, 'record')} will be deleted and {workflow.blastRadius.anonymized} redacted across {plural(workflow.blastRadius.systems, 'system')}. Review the <button type="button" className="link-btn" onClick={() => onTab('plan')}>plan</button> first.</p></div>
-        {!operator && <div className="notice warn"><AlertTriangle size={15} />Enter your name under “Acting as” so the approval is attributed to you.</div>}
+        <OperatorField />
         <label className="field"><span>Type <b className="mono">{workflow.customerId}</b> to confirm</span><input ref={approveRef} className="input confirm-input" value={confirmation} placeholder={workflow.customerId} autoComplete="off" onChange={event => setConfirmation(event.target.value.toUpperCase())} /></label>
         <button type="button" className="btn btn-primary btn-lg" disabled={busy || !operator || confirmation !== workflow.customerId} onClick={() => approve.mutate()}>{approve.isPending ? <Loader2 size={16} className="spin" /> : <LockKeyhole size={16} />}Approve plan</button>
         <label className="field"><span>Or reject it</span><textarea ref={rejectRef} className="textarea" value={reason} placeholder="Why? (recorded in the audit trail)" onChange={event => setReason(event.target.value)} /></label>
         <button type="button" className="btn" disabled={busy || !operator} onClick={() => reject.mutate()}>{reject.isPending ? <Loader2 size={15} className="spin" /> : <X size={15} />}Reject plan</button>
       </>}
 
-      {workflow.state === 'APPROVED' && workflow.approval && <>
+      {expired && workflow.approval && <>
+        <div><h3 style={{fontSize: 'var(--step-1)'}}>Approval expired</h3><p className="small dim">{workflow.approval.approvedBy} approved this plan, but it was not executed within the approval window. Renew the approval for the same plan hash to continue.</p></div>
+        <OperatorField />
+        <label className="field"><span>Type <b className="mono">{workflow.customerId}</b> to renew</span><input className="input confirm-input" value={confirmation} placeholder={workflow.customerId} autoComplete="off" onChange={event => setConfirmation(event.target.value.toUpperCase())} /></label>
+        <button type="button" className="btn btn-primary btn-lg" disabled={busy || !operator || confirmation !== workflow.customerId} onClick={() => approve.mutate()}>{approve.isPending ? <Loader2 size={16} className="spin" /> : <LockKeyhole size={16} />}Renew approval</button>
+      </>}
+
+      {workflow.state === 'APPROVED' && workflow.approval && !expired && <>
         <div><h3 style={{fontSize: 'var(--step-1)'}}>Ready to execute</h3><p className="small dim">Approved by <b>{workflow.approval.approvedBy}</b>. The approval works once and expires in <Countdown until={workflow.approval.expiresAt} />.</p></div>
         <div className="notice warn"><AlertTriangle size={15} />This permanently deletes {plural(workflow.blastRadius.deletable, 'record')} and redacts {workflow.blastRadius.anonymized}. A backup is kept for rollback if verification fails.</div>
+        {!operator && <OperatorField label="Executing as" />}
         {execute.isPending && <ErasingProgress workflow={workflow} />}
-        <button type="button" className="btn btn-danger btn-lg" disabled={busy || !operator || Date.parse(workflow.approval.expiresAt) <= Date.now()} onClick={() => execute.mutate()}>{execute.isPending ? <><Loader2 size={16} className="spin" />Executing and rescanning…</> : <>Execute approved plan</>}</button>
+        <button type="button" className="btn btn-danger btn-lg" disabled={busy || !operator} onClick={() => execute.mutate()}>{execute.isPending ? <><Loader2 size={16} className="spin" />Executing and rescanning…</> : <>Execute approved plan</>}</button>
       </>}
 
       {(workflow.state === 'EXECUTION_FAILED' || workflow.state === 'VERIFICATION_FAILED') && <>
         <div className="notice error"><ShieldAlert size={15} />{workflow.state === 'VERIFICATION_FAILED' ? `The rescan still found ${plural(workflow.verification?.remainingMatches ?? 0, 'record')}.` : 'An action failed part-way.'} Restore everything from the request backup.</div>
+        {!operator && <OperatorField label="Rolling back as" />}
         <button ref={rollbackRef} type="button" className="btn btn-primary btn-lg" disabled={busy || !operator} onClick={() => rollback.mutate()}>{rollback.isPending ? <Loader2 size={16} className="spin" /> : <RotateCcw size={16} />}Roll back from backup</button>
       </>}
 

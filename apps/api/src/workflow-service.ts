@@ -52,6 +52,9 @@ export class WorkflowService {
 
     const assets: Asset[] = [...await postgres.discoverCustomerData(input.customerId, context), ...await minio.discoverCustomerData(input.customerId, context)];
     if (!assets.length) throw new HttpError(404, `No personal data found for ${input.customerId} in ${this.connectors.map(connector => connector.system.name).join(' or ')}`);
+    // A customer whose erasable data is already gone gets a clear answer instead of an empty plan.
+    const residual = (await Promise.all(this.connectors.map(connector => connector.verify(input.customerId)))).reduce((total, result) => total + result.remainingMatches, 0);
+    if (residual === 0) throw new HttpError(409, `${input.customerId} has no erasable personal data left: everything the policy deletes or redacts is already gone. ${plural(assets.filter(asset => asset.classification === 'retain').reduce((total, asset) => total + asset.count, 0), 'record')} stay under the retention policy.`);
     const dependencies: Dependency[] = [...await postgres.inspectDependencies?.(input.customerId) ?? [], ...await minio.inspectDependencies?.(input.customerId) ?? []];
     const shared = dependencies.filter(dependency => dependency.constraintType === 'business');
 
@@ -121,12 +124,14 @@ export class WorkflowService {
     const workflow = this.get(requestId);
     if (body?.confirmation !== workflow.customerId) throw new HttpError(400, `Type ${workflow.customerId} to approve destructive execution`);
     if (workflow.dryRun) throw new HttpError(409, 'Dry-run requests are review-only; create a live request to execute this plan');
-    if (workflow.stage !== 'approval' || workflow.plan.status !== 'pending_approval') throw new HttpError(409, `Cannot approve a request in ${workflow.state ?? workflow.stage}`);
+    // An approval that expired before anyone executed it can be renewed for the same plan hash; otherwise the request would be stuck.
+    const renewing = workflow.state === 'APPROVED' && workflow.approval && !workflow.approval.used && Date.parse(workflow.approval.expiresAt) <= Date.now();
+    if (!renewing && (workflow.stage !== 'approval' || workflow.plan.status !== 'pending_approval')) throw new HttpError(409, workflow.state === 'APPROVED' ? 'This plan is already approved and its approval is still valid; execute it before it expires' : `Cannot approve a request in ${workflow.state ?? workflow.stage}`);
     const approvedAt = new Date();
     workflow.approval = {token: randomUUID(), expiresAt: new Date(approvedAt.getTime() + this.options.approvalTtlMs).toISOString(), used: false, planHash: workflow.plan.hash, approvedBy: operator, approvedAt: approvedAt.toISOString()};
-    transitionWorkflow(workflow, 'APPROVED');
+    if (!renewing) transitionWorkflow(workflow, 'APPROVED');
     workflow.plan.status = 'approved'; workflow.stage = 'execution'; workflow.status = 'ready';
-    this.options.store.append(requestId, {stage: 'approval', message: `${operator} approved plan ${workflow.plan.hash.slice(0, 12)}…; approval expires ${workflow.approval.expiresAt}.`, actor: 'operator', planHash: workflow.plan.hash, details: {approvalId: workflow.approval.token, approvedBy: operator}});
+    this.options.store.append(requestId, {stage: 'approval', message: `${operator} ${renewing ? 'renewed the expired approval for' : 'approved'} plan ${workflow.plan.hash.slice(0, 12)}…; approval expires ${workflow.approval.expiresAt}.`, actor: 'operator', planHash: workflow.plan.hash, details: {approvalId: workflow.approval.token, approvedBy: operator}});
     await this.persist(requestId);
     return workflow;
   }

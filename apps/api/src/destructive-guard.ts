@@ -8,7 +8,7 @@ export class DestructiveRequestGuard{
   authorize(input:DestructiveGuardInput,now=Date.now()){
     const current=this.attempts.get(input.identity);
     if(!current||current.resetAt<=now)this.attempts.set(input.identity,{count:1,resetAt:now+this.windowMs});
-    else{if(current.count>=this.maxAttempts)throw new Error('Destructive operation rate limit exceeded');current.count+=1;}
+    else{if(current.count>=this.maxAttempts)throw new Error(`Destructive operation rate limit exceeded: ${input.identity} can try again in ${Math.ceil((current.resetAt-now)/1000)}s`);current.count+=1;}
     return assertDestructiveExecutionRequest(input);
   }
 }

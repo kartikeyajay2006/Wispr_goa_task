@@ -41,9 +41,8 @@ describe('HTTP erasure lifecycle', () => {
     expect((await call('GET', `/api/requests/${id}/audit`)).body.chain.valid).toBe(true);
 
     const again = await create('CUST-1042');
-    expect(again.status).toBe(201);
-    expect(again.body.assets.every((asset: any) => asset.classification !== 'deletable')).toBe(true);
-    expect(again.body.blastRadius.deletable).toBe(0);
+    expect(again.status).toBe(409);
+    expect(again.body.error).toBe('CUST-1042 has no erasable personal data left: everything the policy deletes or redacts is already gone. 4 records stay under the retention policy.');
   });
 
   it('requires an operator identity for approval and execution', async () => {
@@ -93,7 +92,7 @@ describe('HTTP erasure lifecycle', () => {
     const created = await create('CUST-4410');
     const approved = await call('POST', `/api/requests/${created.body.requestId}/approve`, {confirmation: 'CUST-4410'});
     await call('POST', `/api/requests/${created.body.requestId}/execute-guarded`, {approvalId: approved.body.approval.token, planHash: approved.body.plan.hash});
-    expect((await create('CUST-4410')).body.blastRadius.deletable).toBe(0);
+    expect((await create('CUST-4410')).status).toBe(409);
     await call('POST', '/api/demo/reset');
     expect((await create('CUST-4410')).body.blastRadius.deletable).toBe(2);
   });

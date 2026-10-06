@@ -7,6 +7,7 @@ import {useOperator} from '../operator';
 import {CommandPalette} from '../components/CommandPalette';
 import {speechSupported} from '../components/speech';
 import {Logo, toast} from '../components/ui';
+import {OperatorField} from '../components/OperatorField';
 
 const NAV = [
   {to: '/console', label: 'Overview', icon: LayoutDashboard, end: true},
@@ -23,6 +24,9 @@ export default function ConsoleLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const {name, setName} = useOperator();
   const [draft, setDraft] = useState(name);
+  const [identityOpen, setIdentityOpen] = useState(false);
+  // Keep the sidebar field in step when the name is set from an approval card.
+  useEffect(() => { setDraft(name); }, [name]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,7 +65,12 @@ export default function ConsoleLayout() {
     <div className="main">
       <header className="topbar">
         <button type="button" className="command-trigger" onClick={() => setPaletteOpen(true)}><Search size={15} />{speechSupported ? 'Search, or say a command' : 'Search or run a command'}<kbd>Ctrl K</kbd></button>
-        <div className="who">{name ? <><UserRound size={15} /><span>Acting as</span> <b>{name}</b></> : <span className="pill review">Set your name to approve</span>}</div>
+        <div className="who">
+          <button type="button" className={`who-button ${name ? '' : 'missing'}`} aria-expanded={identityOpen} onClick={() => setIdentityOpen(open => !open)}>
+            {name ? <><UserRound size={15} /><span>Acting as</span> <b>{name}</b></> : <><UserRound size={15} />Set your name to approve</>}
+          </button>
+          {identityOpen && <div className="who-popover panel" role="dialog" aria-label="Who is acting"><OperatorField label="Acting as" autoFocus /><button type="button" className="btn btn-ghost" onClick={() => setIdentityOpen(false)}>Done</button></div>}
+        </div>
       </header>
       <nav className="mobile-nav" aria-label="Console navigation">{NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className={({isActive}) => isActive ? 'active' : ''}>{item.label}{item.badge && pending > 0 ? ` (${pending})` : ''}</NavLink>)}</nav>
       {health.isError && <div className="page" style={{paddingBottom: 0}}><div className="notice error" role="alert">The API is not reachable. Start it with <code>npm run dev</code>; this page reconnects on its own.</div></div>}

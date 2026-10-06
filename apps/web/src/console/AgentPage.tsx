@@ -5,6 +5,7 @@ import {AlertTriangle, ArrowRight, Bot, Brain, Check, CircleSlash, FileSearch, H
 import {api, type AgentEvent, type AgentNode, type ApprovalRequest} from '../api';
 import {useOperator} from '../operator';
 import {useSpeech} from '../components/speech';
+import {OperatorField} from '../components/OperatorField';
 import {ErrorNotice, StatePill, plural, relativeTime, toast} from '../components/ui';
 
 type StageKey = 'understand' | 'investigate' | 'assess' | 'propose' | 'brief1' | 'checkpoint' | 'execute' | 'brief2';
@@ -187,7 +188,7 @@ function ApprovalCard({approval, operator, busy, onDecide}: {approval: ApprovalR
   return <div className="feed-approval">
     <div className="row"><Hand size={18} /><h4>Human checkpoint: your call</h4></div>
     <p className="small dim">Approving runs the exact plan <code>{approval.planHash.slice(0, 12)}…</code> for <b>{approval.customerId}</b>: {plural(approval.deletable, 'record')} deleted, {approval.anonymized} redacted, {approval.retained} kept, across {plural(approval.systems, 'system')}. {approval.expiresHint}.</p>
-    {!operator && <div className="notice warn"><AlertTriangle size={15} />Enter your name under “Acting as” first, so the approval is attributed to you.</div>}
+    <OperatorField />
     <div className="row">
       <input className="input confirm-input" style={{maxWidth: 220}} value={confirmation} placeholder={approval.customerId} aria-label={`Type ${approval.customerId} to approve`} onChange={event => setConfirmation(event.target.value.toUpperCase())} />
       <button type="button" className="btn btn-danger" disabled={busy || !operator || confirmation !== approval.customerId} onClick={() => void onDecide({decision: 'approve', confirmation})}>{busy ? <Loader2 size={15} className="spin" /> : <ShieldCheck size={15} />}Approve and execute</button>
